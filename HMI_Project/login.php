@@ -30,6 +30,11 @@
     .login-container button {
       width: 100%;
     }
+    .login-error {
+      color: red;
+      margin-top: 10px;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body class="login-page">
@@ -40,9 +45,12 @@
       <input type="password" name="password" placeholder="비밀번호" required>
       <button type="submit">로그인</button>
     </form>
-      <form action="regist.php" method="get">
-          <button>회원가입</button>
-      </form>
+    <?php if (isset($_GET['error'])): ?>
+      <div class="login-error">아이디나 비밀번호가 잘못되었습니다.</div>
+    <?php endif; ?>
+    <form action="regist.php" method="get">
+        <button>회원가입</button>
+    </form>
   </div>
 </body>
 </html>

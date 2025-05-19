@@ -1,24 +1,27 @@
 <?php
-
+// DB 완전 초기화 및 테이블 재생성 스크립트
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 $host = 'localhost';
 $username = 'root';
-$password = ''; // XAMPP 기본은 비밀번호 없음
+$password = '';
+$dbname = 'rotator_system';
 
 try {
     // 0. DB 접속 (데이터베이스 없이)
     $pdo = new PDO("mysql:host=$host", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // 1. 데이터베이스 생성
-    $pdo->exec("CREATE DATABASE IF NOT EXISTS rotator_system CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci");
-    echo "✅ 데이터베이스 생성 완료<br>";
+    // 1. 기존 DB 삭제(있으면)
+    $pdo->exec("DROP DATABASE IF EXISTS $dbname");
+    echo "✅ 기존 DB 삭제 완료<br>";
 
-    // 2. rotator_system 사용
-    $pdo->exec("USE rotator_system");
+    // 2. 새 DB 생성
+    $pdo->exec("CREATE DATABASE $dbname CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci");
+    echo "✅ 새 데이터베이스 생성 완료<br>";
+    $pdo->exec("USE $dbname");
 
     // 3. 관리자 테이블 생성
     $pdo->exec("
@@ -31,18 +34,43 @@ try {
     ");
     echo "✅ 관리자 테이블 생성 완료<br>";
 
-    // 4. 고장 정보 테이블 생성 (파일 업로드용 컬럼 포함)
+    // 4. 사용자 테이블 생성
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS users (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(50) NOT NULL UNIQUE,
+            password VARCHAR(255) NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+    echo "✅ 사용자 테이블 생성 완료<br>";
+
+    // 5. 고장 정보 테이블 생성 (username 컬럼 포함)
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS faults (
             id INT AUTO_INCREMENT PRIMARY KEY,
             part VARCHAR(255) NOT NULL,
             filename VARCHAR(255),
+            username VARCHAR(50),
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ");
     echo "✅ 고장 정보 테이블 생성 완료<br>";
 
-    // 5. 예시 관리자 계정 (비밀번호: 1234 해시값으로 저장)
+    // 6. 시스템 로그 테이블 생성
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            username VARCHAR(50),
+            session_id VARCHAR(128),
+            action VARCHAR(255),
+            details TEXT
+        )
+    ");
+    echo "✅ 로그 테이블 생성 완료<br>";
+
+    // 7. 예시 관리자 계정 (비밀번호: 1234 해시값으로 저장)
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM admins WHERE username = 'admin'");
     $stmt->execute();
     if ($stmt->fetchColumn() == 0) {
