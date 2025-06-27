@@ -85,11 +85,5 @@ Feel free to fork, improve, or use this project as a reference for your own indu
 
 ---
 
-## 📬 Contact
-For questions, feedback, or collaboration:
-- **Email**: ateam@example.com
-- **GitHub**: [your-github-profile](https://github.com/your-github-profile)
-
----
 
 **Made with passion for automation, reliability, and clean code.** 
