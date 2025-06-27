@@ -1,8 +1,8 @@
 <?php
 $host = 'localhost';
 $datebase   = 'rotator_system';
-$username = 'root';         // XAMPP 기본 사용자
-$pass = '';             // XAMPP 기본 비밀번호 없음
+$username = 'root';         
+$pass = '1234';             
 $charset = 'utf8mb4';
 
 $dsn = "mysql:host=$host;dbname=$datebase;charset=$charset";

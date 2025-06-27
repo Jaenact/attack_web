@@ -2,7 +2,7 @@
 require_once 'includes/db.php';
 
 $username = 'admin';
-$password = '1234';
+$password = 'ateam4567!';
 $hash = password_hash($password, PASSWORD_DEFAULT);
 
 $pdo->exec("DELETE FROM admins WHERE username='admin'");

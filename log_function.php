@@ -9,9 +9,17 @@ function writeLog($pdo, $username, $message) {
     $stmt->execute([
         'username' => $username,
         'log_message' => $message,
-        'ip_address' => $_SERVER['REMOTE_ADDR']  // 클라이언트 IP
+        'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'Unknown'
     ]);
 }
+
+
+
+
+
+#     if (isset($_SESSION['admin'])) {
+#       $username = $_SESSION['admin'];
+#      writeLog($pdo, $username, "장비 상태 변경: $action, 회전수: $rpm"); }
 
 
 ?>

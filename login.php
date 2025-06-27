@@ -3,7 +3,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>PLC 관리자 로그인</title>
+  <title>PLC 로그인</title>
   <link rel="stylesheet" href="style.css">
   <style>
     .login-page {
@@ -34,16 +34,14 @@
 </head>
 <body class="login-page">
   <div class="login-container">
-    <h2>🔐 관리자 로그인</h2>
+    <h2>🔐 로그인</h2>
     <form action="auth.php" method="post">
       <input type="text" name="username" placeholder="아이디" required>
       <input type="password" name="password" placeholder="비밀번호" required>
       <button type="submit">로그인</button>  
     </form>
     
-    <a href="make_account.php">
-      <button type="button">회원가입</button>
-    </a>
+    <a href="make_account.php">회원가입</a>
   </div>
 </body>
 </html>

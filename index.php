@@ -3,8 +3,8 @@ if (!isset($_SESSION['admin']) && !isset($_SESSION['guest'])) {
   header("Location: login.php");
   exit();
 }
+// echo "로그인 성공: ".($_SESSION['admin'] ?? $_SESSION['guest']);
 
-echo "로그인 성공: ".($_SESSION['admin'] ?? $_SESSION['guest']);
 ?>
 <!DOCTYPE html>
 <html lang="ko">
@@ -21,6 +21,7 @@ echo "로그인 성공: ".($_SESSION['admin'] ?? $_SESSION['guest']);
       <li><a href="control.php">⚙ 회전기 제어</a></li>
       <li><a href="faults.php">🚨 고장 게시판</a></li>
       <li><a href="logs.php">📋 로그</a></li>
+      <li><a href="user_management.php">👥 사용자 관리</a></li>
       <li><a href="logout.php">🔓 로그아웃</a></li>
     </ul>
   </div>
