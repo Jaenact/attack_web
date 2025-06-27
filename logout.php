@@ -1,8 +1,8 @@
 <?php
 
 session_start();
-#require_once 'includes/db.php';
-#require_once 'log_function.php';
+require_once 'includes/db.php';
+require_once 'log_function.php';
 
 // 로그아웃 전에 사용자 정보 저장
 $currentUser = $_SESSION['admin'] ?? $_SESSION['guest'] ?? 'Unknown';
