@@ -1,5 +1,5 @@
 <?php
-require_once 'includes/db.php'; // rotator_system DB 연결됨
+require_once '../src/db/db.php'; // rotator_system DB 연결됨
 
 try {
     // 테이블 삭제

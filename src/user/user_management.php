@@ -1,7 +1,7 @@
 <?php
 session_start();
-require_once 'includes/db.php';
-require_once 'log_function.php';
+require_once '../db/db.php';
+require_once '../log/log_function.php';
 
 // 관리자만 접근 가능
 if (!isset($_SESSION['admin'])) {
@@ -351,6 +351,7 @@ function getUserStats($pdo, $username) {
                     <th width="15%">활동 통계</th>
                     <th width="20%">최근 활동</th>
                     <th width="10%">마지막 활동</th>
+                    <th width="10%">프로필</th>
                     <th width="13%">관리</th>
                 </tr>
             </thead>
@@ -407,6 +408,9 @@ function getUserStats($pdo, $username) {
                                 <?php else: ?>
                                     <span style="color: #999;">활동 없음</span>
                                 <?php endif; ?>
+                            </td>
+                            <td>
+                                <button class="btn btn-info" onclick="showProfileModal('<?= $user['id'] ?>', '<?= $user['type'] ?>')">👤 프로필</button>
                             </td>
                             <td>
                                 <button class="btn btn-warning" onclick="showPasswordModal('<?= $user['id'] ?>', '<?= $user['type'] ?>', '<?= htmlspecialchars($user['username']) ?>')">
@@ -487,6 +491,26 @@ function getUserStats($pdo, $username) {
         </div>
     </div>
 
+    <!-- 프로필 모달 -->
+    <div id="profileModal" class="modal" style="display:none;position:fixed;z-index:9999;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.25);justify-content:center;align-items:center;">
+        <div class="modal-content" style="background:#fff;padding:32px 28px;border-radius:10px;min-width:320px;max-width:400px;box-shadow:0 2px 12px rgba(0,0,0,0.12);position:relative;">
+            <button onclick="closeProfileModal()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:22px;cursor:pointer;">&times;</button>
+            <h3 style="margin-bottom:18px;">👤 프로필 정보</h3>
+            <form id="profileForm" method="post" action="update_profile.php" enctype="multipart/form-data">
+                <input type="hidden" name="user_id" id="profileUserId">
+                <input type="hidden" name="user_type" id="profileUserType">
+                <label>이름</label>
+                <input type="text" name="name" id="profileName" style="width:100%;margin-bottom:10px;">
+                <label>연락처</label>
+                <input type="text" name="phone" id="profilePhone" style="width:100%;margin-bottom:10px;">
+                <label>프로필 사진</label>
+                <input type="file" name="profile_img" accept="image/*" style="width:100%;margin-bottom:10px;">
+                <div id="profileImgPreview" style="margin-bottom:10px;"></div>
+                <button type="submit" class="btn btn-primary" style="width:100%;margin-top:10px;">저장</button>
+            </form>
+        </div>
+    </div>
+
     <script>
         function showPasswordModal(userId, userType, username) {
             document.getElementById('modalUserId').value = userId;
@@ -505,6 +529,27 @@ function getUserStats($pdo, $username) {
             if (event.target == modal) {
                 modal.style.display = 'none';
             }
+        }
+
+        function showProfileModal(userId, userType) {
+            document.getElementById('profileModal').style.display = 'flex';
+            document.getElementById('profileUserId').value = userId;
+            document.getElementById('profileUserType').value = userType;
+            fetch('update_profile.php?get=1&user_id=' + userId + '&user_type=' + userType)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('profileName').value = data.name || '';
+                    document.getElementById('profilePhone').value = data.phone || '';
+                    if (data.profile_img) {
+                        document.getElementById('profileImgPreview').innerHTML = '<img src="uploads/profile/' + data.profile_img + '" alt="프로필" style="max-width:100px;max-height:100px;border-radius:50%;">';
+                    } else {
+                        document.getElementById('profileImgPreview').innerHTML = '';
+                    }
+                });
+        }
+
+        function closeProfileModal() {
+            document.getElementById('profileModal').style.display = 'none';
         }
     </script>
 </body>

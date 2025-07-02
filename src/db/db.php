@@ -1,11 +1,11 @@
 <?php
 $host = 'localhost';
-$datebase   = 'rotator_system';
+$database   = 'rotator_system';
 $username = 'root';         
 $pass = '1234';             
 $charset = 'utf8mb4';
 
-$dsn = "mysql:host=$host;dbname=$datebase;charset=$charset";
+$dsn = "mysql:host=$host;dbname=$database;charset=$charset";
 $options = [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION];
 
 try {

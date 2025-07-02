@@ -1,5 +1,5 @@
 <?php
-require_once 'includes/db.php';   // rotator_system DB에 이미 연결 중
+require_once '../src/db/db.php';   // rotator_system DB에 이미 연결 중
 
 $sql = "
 CREATE TABLE IF NOT EXISTS faults (

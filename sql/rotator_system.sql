@@ -20,6 +20,16 @@ CREATE TABLE IF NOT EXISTS faults (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+-- 서버 점검 기간/상태 테이블 생성
+CREATE TABLE IF NOT EXISTS maintenance (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    start_at DATETIME NOT NULL,
+    end_at DATETIME NOT NULL,
+    is_active TINYINT(1) DEFAULT 1,
+    created_by VARCHAR(50),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 예시 관리자 계정 (비밀번호: 1234 해시)
 INSERT INTO admins (username, password)
 VALUES ('admin', '$2y$10$j6UPBx3ib9BlCk4a0frLIeJoiCAuzCRvR4KcXfTi4K79Cn.yYhNwe');

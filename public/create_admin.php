@@ -1,5 +1,5 @@
 <?php
-require_once 'includes/db.php';
+require_once '../src/db/db.php';
 
 $username = 'admin';
 $password = 'ateam4567!';

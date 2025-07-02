@@ -1,7 +1,7 @@
 <?php
 session_start();
-require_once 'includes/db.php';
-require_once 'log_function.php';
+require_once __DIR__ . '/../db/db.php';
+require_once __DIR__ . '/../log/log_function.php';
 
 $username = $_POST['username'];
 $password = $_POST['password'];
