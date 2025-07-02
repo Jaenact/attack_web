@@ -1,12 +1,13 @@
 <?php session_start(); ?>
 <?php
 require_once '../src/db/db.php';
-$now = date('Y-m-d H:i:s');
-$stmt = $pdo->prepare("SELECT * FROM maintenance WHERE is_active=1 AND start_at <= :now AND end_at >= :now LIMIT 1");
-$stmt->execute(['now' => $now]);
-if ($stmt->fetch()) {
-    header('Location: maintenance.php');
-    exit();
+require_once '../src/log/log_function.php';
+if (!isset($_POST['admin_maintenance_login'])) {
+    $stmt = $pdo->query("SELECT * FROM maintenance WHERE is_active=1 LIMIT 1");
+    if ($stmt->fetch()) {
+        header('Location: maintenance.php');
+        exit();
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -74,13 +75,5 @@ if ($stmt->fetch()) {
     <div>가천대학교 CPS |  <a href="#" style="color:#FFB300; text-decoration:underline;">이용약관</a> | <a href="#" style="color:#FFB300; text-decoration:underline;">개인정보처리방침</a> | 고객센터: 1234-5678</div>
     <div style="margin-top:8px;">© 2025 PLC Control</div>
   </footer>
-  <?php
-  // require_once '../src/db/maintenance_check.php';
-  // $maintenance = isMaintenanceActive();
-  // if ($maintenance && !isset($_SESSION['admin'])) {
-  //   header('Location: maintenance.php');
-  //   exit();
-  // }
-  ?>
 </body>
 </html>

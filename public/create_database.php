@@ -48,6 +48,10 @@ try {
             id INT AUTO_INCREMENT PRIMARY KEY,
             part VARCHAR(255) NOT NULL,
             filename VARCHAR(255),
+            original_filename VARCHAR(255),
+            status VARCHAR(50),
+            manager VARCHAR(50),
+            comment_count INT DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ");
@@ -58,8 +62,8 @@ try {
         CREATE TABLE IF NOT EXISTS logs (
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(50) NOT NULL,
-	    action VARCHAR(255),
-            log_message VARCHAR(255) NOT NULL,
+            action VARCHAR(255),
+            log_message TEXT NOT NULL,
             ip_address VARCHAR(255),
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
@@ -77,6 +81,30 @@ try {
             throw $e;
         }
     }
+
+    // 6. 점검 테이블 생성
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS maintenance (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            start_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            end_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            is_active TINYINT(1) DEFAULT 1,
+            created_by VARCHAR(50),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+    echo "✅ 점검 테이블 생성 완료<br>";
+
+    // 7. 공지사항 테이블 생성
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS notices (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            content TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+    echo "✅ 공지사항 테이블 생성 완료<br>";
 
     // 6. 예시 관리자 계정 등록
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM admins WHERE username = 'admin'");

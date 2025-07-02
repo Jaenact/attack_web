@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 session_start();
 if (!isset($_SESSION['admin']) && !isset($_SESSION['guest'])) {
   header("Location: login.php");
@@ -8,12 +11,19 @@ if (!isset($_SESSION['admin']) && !isset($_SESSION['guest'])) {
 // maintenanceRedirectIfNeeded();
 $title = '고장 관리';
 $active = 'faults';
-ob_start();
 
 require_once '../src/db/db.php';          
 require_once '../src/log/log_function.php';
 
-$upload_dir = 'uploads/';
+$upload_dir = realpath(__DIR__ . '/../uploads');
+if ($upload_dir === false) {
+    // uploads 폴더가 없으면 생성
+    $upload_dir = __DIR__ . '/../uploads';
+    mkdir($upload_dir, 0777, true);
+    $upload_dir = realpath($upload_dir);
+}
+$upload_dir .= '/';
+// echo '실제 업로드 경로: ' . $upload_dir . "<br>";
 
 // 파일 존재 여부 확인 함수
 function fileExists($filename) {
@@ -37,6 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['part']) && !isset($_P
     $filename = null;
     $original_filename = null;
 
+    $username = $_SESSION['admin'] ?? $_SESSION['guest'] ?? '';
+    writeLog($pdo, $username, '고장등록', '시도');
+
     if (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
         $tmp_name = $_FILES['file']['tmp_name'];              
         $origin_name = basename($_FILES['file']['name']);     
@@ -44,9 +57,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['part']) && !isset($_P
         $ext = pathinfo($origin_name, PATHINFO_EXTENSION);    
         $new_name = uniqid() . "." . $ext;                    
 
-        if (move_uploaded_file($tmp_name, $upload_dir . $new_name)) {
+        $target_path = $upload_dir . $new_name;
+        $move_result = move_uploaded_file($tmp_name, $target_path);
+        if ($move_result) {
             $filename = $new_name;
             $original_filename = $origin_name; // 원본 파일명 저장
+        } else {
+            error_log("파일 업로드 실패: $origin_name");
+            header("Location: faults.php?error=upload");
+            exit();
         }
     }
 
@@ -64,10 +83,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['part']) && !isset($_P
             $logMessage .= ", 첨부파일: 없음";
         }
         
-        writeLog($pdo, $currentUser, $logMessage);
-
-        echo "<script>alert('고장 내용을 등록했습니다.'); location.href='faults.php';</script>"; 
-        exit();                                               
+        writeLog($pdo, $currentUser, '고장접수', '성공', $logMessage);
+        header("Location: faults.php");
+        exit();
     }
 }
 
@@ -137,10 +155,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_id'], $_POST['ne
             $logMessage .= ", 첨부파일: 없음";
         }
         
-        writeLog($pdo, $currentUser, $logMessage);
-        
-        echo "<script>alert('수정 완료!'); location.href='faults.php';</script>"; 
-        exit();                                               
+        writeLog($pdo, $currentUser, '고장수정', '성공', $logMessage);
+        header("Location: faults.php");
+        exit();
     }
 }
 
@@ -174,9 +191,8 @@ if (isset($_GET['delete'])) {
         }
     }
     
-    writeLog($pdo, $currentUser, $logMessage);
-
-    echo "<script>alert('삭제 완료!'); location.href='faults.php';</script>"; 
+    writeLog($pdo, $currentUser, '고장삭제', '성공', $logMessage);
+    header("Location: faults.php");
     exit();                                                   
 }
 
@@ -599,6 +615,13 @@ if (isset($_GET['delete_comment'])) {
                   <span class="created">등록일: <?= $fault['created_at'] ?></span>
                   <span class="comment-count">댓글: <?= (int)$fault['comment_count'] ?></span>
                 </div>
+                <?php if ($fault['filename'] && fileExists($fault['filename'])): ?>
+                  <div class="file-info" style="margin-top:6px;">
+                    📎 첨부파일: <a href="uploads/<?= urlencode($fault['filename']) ?>" target="_blank" class="file-link">
+                      <?= htmlspecialchars($fault['original_filename'] ?? $fault['filename']) ?>
+                    </a>
+                  </div>
+                <?php endif; ?>
               </div>
               <div class="fault-sub">
                 <button class="toggle-detail">상세/댓글 보기</button>
@@ -634,22 +657,14 @@ if (isset($_GET['delete_comment'])) {
                     <input type="text" name="comment_text" placeholder="댓글 입력..." style="flex:1;padding:6px 8px;border-radius:4px;border:1px solid #ccc;">
                     <button type="submit" class="btn" style="padding:6px 14px;">등록</button>
                   </form>
-                  <div class="fault-icons">
-                    <form method="post" action="faults.php" style="display:inline;">
-                      <input type="hidden" name="favorite_id" value="<?= $fault['id'] ?>">
-                      <button type="submit" class="fault-icon-btn bookmark"><?= $fault['is_favorite']?'★':'☆' ?></button>
-                    </form>
-                    <form method="post" action="faults.php" style="display:inline;">
-                      <input type="hidden" name="report_id" value="<?= $fault['id'] ?>">
-                      <button type="submit" class="fault-icon-btn report">🚩신고</button>
-                    </form>
-                    <?php if ($fault['is_hidden']): ?><span style="color:#888;">[숨김]</span><?php endif; ?>
-                  </div>
                   <?php if (isset($_SESSION['admin'])): ?>
-                    <form method="post" action="faults.php" style="margin-bottom:4px;">
+                    <form method="post" action="faults.php" style="margin-bottom:8px;">
                       <input type="hidden" name="note_id" value="<?= $fault['id'] ?>">
-                      <input type="text" name="admin_note" value="<?= htmlspecialchars($fault['admin_note']??'') ?>" placeholder="관리자 메모" style="width:70%;">
-                      <button type="submit">저장</button>
+                      <div style="background:#f8f9fa;border:1.5px solid #3C8DBC;border-radius:10px;padding:10px 14px 8px 14px;display:flex;align-items:flex-start;gap:10px;">
+                        <span style="font-size:1.2rem;color:#3C8DBC;margin-top:2px;">📝</span>
+                        <textarea name="admin_note" placeholder="관리자 메모" style="width:100%;min-height:36px;border:none;background:transparent;resize:vertical;outline:none;font-size:1rem;"><?= htmlspecialchars($fault['admin_note']??'') ?></textarea>
+                        <button type="submit" style="background:#3C8DBC;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:600;">저장</button>
+                      </div>
                     </form>
                   <?php endif; ?>
                 </div>

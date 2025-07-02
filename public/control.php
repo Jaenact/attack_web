@@ -1,4 +1,8 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 session_start();
 require_once '../src/db/db.php';
 require_once '../src/log/log_function.php';
@@ -39,7 +43,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $logMessage .= ", 회전수: $rpm RPM (변경없음)";
         }
 
-        writeLog($pdo, $currentUser, $logMessage);
+        writeLog($pdo, $currentUser, '장비제어', '성공', $logMessage);
         
         echo "<script>alert('장비 상태: $action, 회전수: $rpm RPM'); location.href='control.php';</script>";
         exit();
@@ -50,7 +54,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $previous_rpm = $_SESSION['current_rpm'] ?? 0;
         $_SESSION['current_rpm'] = $rpm;
         $logMessage = "장비 제어 - 회전수변경: $previous_rpm → $rpm RPM (상태: {$_SESSION['machine_status']})";
-        writeLog($pdo, $currentUser, $logMessage);
+        writeLog($pdo, $currentUser, '장비제어', '성공', $logMessage);
         echo "<script>alert('회전수 적용: $rpm RPM'); location.href='control.php';</script>";
         exit();
     }

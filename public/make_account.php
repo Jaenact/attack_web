@@ -1,11 +1,13 @@
 <?php
 session_start();
 require_once '../src/db/db.php';
+require_once '../src/log/log_function.php';
 // require_once '../src/db/maintenance_check.php';
 // maintenanceRedirectIfNeeded();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $_POST['username'];
+    $username = $_POST['username'] ?? '';
+    writeLog($pdo, $username, '회원가입', '시도');
     $password = $_POST['password'];
     $r_password = $_POST['r_password'];
     $name = $_POST['name'] ?? '';
@@ -49,6 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ]);
 
     echo "<script>alert('회원가입 완료! 로그인 해주세요.'); location.href='login.php';</script>";
+    writeLog($pdo, $username, '회원가입', '성공');
     exit();
 }
 ?>

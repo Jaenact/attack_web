@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
 session_start();
 require_once '../src/db/db.php';
@@ -24,7 +27,7 @@ if (ini_get("session.use_cookies")) {
 session_destroy();
 
 // 로그아웃 로그 기록
-writeLog($pdo, $currentUser, "로그아웃 - 계정: $currentUser ($userType)");
+writeLog($pdo, $currentUser, "로그아웃", "성공", "계정: $currentUser ($userType)");
 
 
 header("Location: login.php");

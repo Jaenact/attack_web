@@ -1,9 +1,13 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 session_start();
 if (!isset($_SESSION['admin'])) {
   header("Location: login.php");
   exit();
 }
+require_once '../src/db/db.php';
 // require_once '../src/db/maintenance_check.php';
 // maintenanceRedirectIfNeeded();
 // 검색/필터 파라미터

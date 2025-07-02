@@ -1,8 +1,8 @@
 <?php
-require_once __DIR__ . '/../src/db/maintenance_check.php';
-$maintenance = isMaintenanceActive();
-// 점검이 아니면 메인으로 이동
-if (!$maintenance) { header('Location: index.php'); exit(); }
+date_default_timezone_set('Asia/Seoul');
+require_once '../src/db/db.php';
+$maintenance = $pdo->query("SELECT * FROM maintenance WHERE is_active=1 ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+$end_at = $maintenance ? $maintenance['end_at'] : null;
 ?>
 <!DOCTYPE html>
 <html lang="ko">
@@ -24,6 +24,13 @@ if (!$maintenance) { header('Location: index.php'); exit(); }
   </style>
 </head>
 <body>
+<?php if (!isset($_SESSION['admin'])): ?>
+<script>
+  setTimeout(function() {
+    window.location.href = 'maintenance_end.php';
+  }, 5000);
+</script>
+<?php endif; ?>
   <div class="container">
     <div class="maintenance-icon">
       <svg fill="none" viewBox="0 0 48 48"><circle cx="24" cy="24" r="24" fill="#003366"/><path d="M24 14v10" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="24" cy="32" r="2.5" fill="#f5a623"/></svg>
@@ -41,6 +48,33 @@ if (!$maintenance) { header('Location: index.php'); exit(); }
       등록자: <b><?= htmlspecialchars($maintenance['created_by']) ?></b><br>
       (예정 시간은 상황에 따라 변동될 수 있습니다)
     </div>
+    <?php if ($end_at): ?>
+    <div id="maintenance-timer" style="font-size:1.12rem;color:#E53935;font-weight:600;margin-bottom:18px;">
+      남은 점검 시간: <span id="timer-remaining"></span>
+    </div>
+    <script>
+      function updateTimer() {
+        var endAt = new Date('<?= $end_at ?>'.replace(/-/g, '/'));
+        var now = new Date();
+        if (isNaN(endAt.getTime())) {
+          document.getElementById('timer-remaining').textContent = '시간 정보 없음';
+          return;
+        }
+        var diff = Math.floor((endAt - now) / 1000);
+        if (diff <= 0) {
+          document.getElementById('timer-remaining').textContent = '점검 종료';
+          return;
+        }
+        var h = Math.floor(diff / 3600);
+        var m = Math.floor((diff % 3600) / 60);
+        var s = diff % 60;
+        var str = (h > 0 ? h+'시간 ' : '') + (m > 0 ? m+'분 ' : '') + s+'초';
+        document.getElementById('timer-remaining').textContent = str;
+      }
+      updateTimer();
+      setInterval(updateTimer, 1000);
+    </script>
+    <?php endif; ?>
     <div class="contact">
       문의: 관리자에게 연락 바랍니다.
     </div>
@@ -50,6 +84,7 @@ if (!$maintenance) { header('Location: index.php'); exit(); }
         <button id="adminLoginClose" style="position:absolute;right:14px;top:10px;font-size:1.5rem;background:none;border:none;color:#888;cursor:pointer;">×</button>
         <h3 style="margin-bottom:18px;color:#005BAC;font-size:1.15rem;">관리자 로그인</h3>
         <form method="post" action="login.php">
+          <input type="hidden" name="admin_maintenance_login" value="1">
           <input type="text" name="username" placeholder="아이디" required style="width:100%;padding:10px;margin-bottom:10px;border-radius:6px;border:1.5px solid #cfd8dc;">
           <input type="password" name="password" placeholder="비밀번호" required style="width:100%;padding:10px;margin-bottom:10px;border-radius:6px;border:1.5px solid #cfd8dc;">
           <button type="submit" style="width:100%;padding:10px;background:#005BAC;color:#fff;border:none;border-radius:6px;font-weight:600;font-size:1.08rem;">로그인</button>

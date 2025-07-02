@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../db/db.php';
+require_once '../../src/log/log_function.php';
 
 if (!isset($_SESSION['admin']) && !isset($_SESSION['guest'])) {
     http_response_code(403);
@@ -116,6 +117,18 @@ if (isset($_POST['change_pw'])) {
     $stmt->execute(['pw'=>$new_pw, 'username'=>$username]);
     echo json_encode(['success'=>true, 'msg'=>'비밀번호가 성공적으로 변경되었습니다.']);
     exit();
+}
+
+// 프로필/비밀번호 변경 시도 시
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = $_SESSION['admin'] ?? $_SESSION['guest'] ?? '';
+    writeLog($pdo, $username, '프로필수정', '시도');
+    // ... 기존 프로필/비밀번호 변경 처리 ...
+    if ($수정_성공) {
+        writeLog($pdo, $username, '프로필수정', '성공');
+    } else {
+        writeLog($pdo, $username, '프로필수정', '실패', $errorMsg);
+    }
 }
 
 header('Location: index.php');

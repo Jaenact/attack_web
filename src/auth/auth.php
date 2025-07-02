@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 session_start();
 require_once __DIR__ . '/../db/db.php';
 require_once __DIR__ . '/../log/log_function.php';
@@ -14,7 +17,7 @@ $user_admin = $stmt_admin->fetch();
 
 if ($user_admin && password_verify($password, $user_admin['password'])) {
     $_SESSION['admin'] = $user_admin['username'];
-    writeLog($pdo, $username, "관리자 로그인 성공 - 계정: $username");
+    writeLog($pdo, $username, "로그인", "성공", "관리자 로그인 성공 - 계정: $username");
     header("Location: index.php");
     exit();
 }
@@ -27,13 +30,13 @@ $user_guest = $stmt_guest->fetch();
 
 if ($user_guest && password_verify($password, $user_guest['password'])) {
     $_SESSION['guest'] = $user_guest['username'];
-    writeLog($pdo, $username, "게스트 로그인 성공 - 계정: $username");
+    writeLog($pdo, $username, "로그인", "성공", "게스트 로그인 성공 - 계정: $username");
     header("Location: index.php");
     exit();
 }
 
 // 3. 둘 다 실패한 경우
-writeLog($pdo, $username, "로그인 실패 - 시도계정: $username, 원인: 잘못된 비밀번호 또는 존재하지 않는 계정");
+writeLog($pdo, $username, "로그인", "실패", "시도계정: $username, 원인: 잘못된 비밀번호 또는 존재하지 않는 계정");
 echo "<script>alert('로그인 실패: 아이디 또는 비밀번호가 잘못되었습니다.'); history.back();</script>";
 exit();
 ?>
