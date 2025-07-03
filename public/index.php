@@ -12,10 +12,6 @@ if (!isset($_SESSION['admin']) && !isset($_SESSION['guest'])) {
 }
 require_once '../src/db/db.php';
 require_once '../src/log/log_function.php';
-// echo "로그인 성공: ".($_SESSION['admin'] ?? $_SESSION['guest']);
-
-// require_once '../src/db/maintenance_check.php';
-// maintenanceRedirectIfNeeded('/public/index.php');
 
 // [관리자용 대시보드 통계 집계]
 if (isset($_SESSION['admin'])) {
@@ -186,11 +182,6 @@ if (isset($_POST['unset_maintenance'])) {
       </ul>
     </nav>
   </header>
-<?php if (isset($_SESSION['admin'])): ?>
-  <div style="width:100%;text-align:center;margin:0 auto 12px auto;font-size:1.05rem;color:#234;font-weight:500;">
-    고장 <?= $total_faults ?>건(미처리 <?= $pending_faults ?>) · 오늘 <?= $today_faults ?>건 접수 · 점검상태: <span style="color:<?= $is_maintenance ? '#E53935' : '#005BAC' ?>;font-weight:700;"><?= $is_maintenance ? '점검중' : '정상' ?></span>
-  </div>
-<?php endif; ?>
   <main id="main-content" class="main-content" tabindex="-1" style="padding:0;background:transparent;box-shadow:none;max-width:1100px;">
     <?php if (isset($_SESSION['admin'])): ?>
     <!-- 현황 카드 3분할 (관리자만) -->

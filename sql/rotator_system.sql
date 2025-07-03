@@ -30,6 +30,18 @@ CREATE TABLE IF NOT EXISTS maintenance (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 장비 상태 테이블 생성
+CREATE TABLE IF NOT EXISTS machine_status (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    status ENUM('on','off') NOT NULL DEFAULT 'off',
+    rpm INT NOT NULL DEFAULT 0,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 최초 1행 삽입 (없을 경우)
+INSERT INTO machine_status (id, status, rpm) VALUES (1, 'off', 0)
+    ON DUPLICATE KEY UPDATE id=id;
+
 -- 예시 관리자 계정 (비밀번호: 1234 해시)
 INSERT INTO admins (username, password)
 VALUES ('admin', '$2y$10$j6UPBx3ib9BlCk4a0frLIeJoiCAuzCRvR4KcXfTi4K79Cn.yYhNwe');

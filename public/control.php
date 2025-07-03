@@ -18,51 +18,37 @@ if (!isset($_SESSION['admin']) && !isset($_SESSION['guest'])) {
 $isAdmin = isset($_SESSION['admin']);
 $currentUser = $isAdmin ? $_SESSION['admin'] : $_SESSION['guest'];
 
-if (!isset($_SESSION['machine_status'])) {
-    $_SESSION['machine_status'] = 'off';
-}
+// DB에서 장비 상태 읽기
+$row = $pdo->query("SELECT status, rpm FROM machine_status WHERE id=1")->fetch();
+$isOn = $row ? $row['status'] === 'on' : false;
+$currentRpm = $row ? $row['rpm'] : 0;
 
 // admin만 POST 요청 처리 가능
 if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'];
-
     if ($action === 'on' || $action === 'off') {
-        $previous_status = $_SESSION['machine_status'];
-        $_SESSION['machine_status'] = $action;
-        $rpm = $_POST['rpm'] ?? 0;
-        $previous_rpm = $_SESSION['current_rpm'] ?? 0;
-
-        // 현재 RPM 저장
-        $_SESSION['current_rpm'] = $rpm;
-
-        // 자세한 제어 로그 메시지 생성
-        $logMessage = "장비 제어 - 상태변경: $previous_status → $action";
-        if ($rpm != $previous_rpm) {
-            $logMessage .= ", 회전수변경: $previous_rpm → $rpm RPM";
+        $rpm = $_POST['rpm'] ?? $currentRpm;
+        $pdo->prepare("UPDATE machine_status SET status=?, rpm=? WHERE id=1")->execute([$action, $rpm]);
+        $logMessage = "장비 제어 - 상태변경: ".$row['status']." → ".$action;
+        if ($rpm != $row['rpm']) {
+            $logMessage .= ", 회전수변경: ".$row['rpm']." → ".$rpm." RPM";
         } else {
-            $logMessage .= ", 회전수: $rpm RPM (변경없음)";
+            $logMessage .= ", 회전수: ".$rpm." RPM (변경없음)";
         }
-
         writeLog($pdo, $currentUser, '장비제어', '성공', $logMessage);
-        
         echo "<script>alert('장비 상태: $action, 회전수: $rpm RPM'); location.href='control.php';</script>";
         exit();
     }
     // 회전수만 적용
     if ($action === 'apply_rpm') {
-        $rpm = $_POST['rpm'] ?? 0;
-        $previous_rpm = $_SESSION['current_rpm'] ?? 0;
-        $_SESSION['current_rpm'] = $rpm;
-        $logMessage = "장비 제어 - 회전수변경: $previous_rpm → $rpm RPM (상태: {$_SESSION['machine_status']})";
+        $rpm = $_POST['rpm'] ?? $currentRpm;
+        $pdo->prepare("UPDATE machine_status SET rpm=? WHERE id=1")->execute([$rpm]);
+        $logMessage = "장비 제어 - 회전수변경: ".$row['rpm']." → ".$rpm." RPM (상태: ".$row['status'].")";
         writeLog($pdo, $currentUser, '장비제어', '성공', $logMessage);
         echo "<script>alert('회전수 적용: $rpm RPM'); location.href='control.php';</script>";
         exit();
     }
 } 
-
-// 기본 상태 설정
-$isOn = $_SESSION['machine_status'] === 'on';
-$currentRpm = $_SESSION['current_rpm'] ?? 0;
 ?>
 <!DOCTYPE html>
 <html lang="ko">
