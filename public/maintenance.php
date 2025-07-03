@@ -26,9 +26,23 @@ $end_at = $maintenance ? $maintenance['end_at'] : null;
 <body>
 <?php if (!isset($_SESSION['admin'])): ?>
 <script>
-  setTimeout(function() {
-    window.location.href = 'maintenance_end.php';
-  }, 5000);
+function checkMaintenanceStatus() {
+  fetch('check_maintenance_status.php')
+    .then(response => response.json())
+    .then(data => {
+      if (data.is_active === 0) {
+        window.location.href = 'maintenance_end.php';
+      } else {
+        // 점검이 계속 중이면 5초 후 새로고침
+        setTimeout(function() { location.reload(); }, 5000);
+      }
+    })
+    .catch(() => {
+      // 에러 시에도 5초 후 재시도
+      setTimeout(checkMaintenanceStatus, 5000);
+    });
+}
+checkMaintenanceStatus();
 </script>
 <?php endif; ?>
   <div class="container">
