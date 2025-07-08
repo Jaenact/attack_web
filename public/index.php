@@ -65,19 +65,36 @@ if (isset($_SESSION['admin'])) {
   // 유지보수 모드 여부 확인 (시스템 점검 중 표시)
   $row = $pdo->query("SELECT is_active FROM maintenance ORDER BY id DESC LIMIT 1")->fetch();
   $is_maintenance = $row && $row['is_active'] == 1;
+  
+  // PHPIDS 보안 로그 통계
+  $total_security_events = $pdo->query("SELECT COUNT(*) FROM logs WHERE (log_message LIKE '%공격감지%' OR log_message LIKE '%PHPIDS%')")->fetchColumn();
+  $today_security_events = $pdo->prepare("SELECT COUNT(*) FROM logs WHERE (log_message LIKE '%공격감지%' OR log_message LIKE '%PHPIDS%') AND DATE(created_at) = :today");
+  $today_security_events->execute(['today' => date('Y-m-d')]);
+  $today_security_events = $today_security_events->fetchColumn();
+  
+  // 높은 임팩트 보안 이벤트 수 (임팩트 20 이상)
+  $high_impact_events = $pdo->query("SELECT COUNT(*) FROM logs WHERE (log_message LIKE '%공격감지%' OR log_message LIKE '%PHPIDS%') AND log_message LIKE '%임팩트: 2%'")->fetchColumn();
 }
 
 // [공지사항 등록/수정/삭제] - 관리자만 가능. 공지사항 관리 및 로그 기록
 if (isset($_SESSION['admin'])) {
-    // 점검 시작 처리 (누락된 부분 추가)
+    // 점검 시작 처리
     if (isset($_POST['set_maintenance'], $_POST['duration'])) {
         $duration = (int)$_POST['duration'];
         $start = date('Y-m-d H:i:s');
         $end = date('Y-m-d H:i:s', strtotime("+$duration minutes"));
-        $pdo->exec("UPDATE maintenance SET is_active=1, start_at='$start', end_at='$end'");
         $username = $_SESSION['admin'] ?? '';
-        writeLog($pdo, $username, '점검시작', '성공', $duration);
-        echo "<script>alert('점검이 시작되었습니다.');location.href='index.php';</script>"; exit();
+        
+        // 기존 점검 기록이 있으면 비활성화
+        $pdo->exec("UPDATE maintenance SET is_active=0");
+        
+        // 새로운 점검 기록 추가
+        $stmt = $pdo->prepare("INSERT INTO maintenance (start_at, end_at, is_active, created_by) VALUES (?, ?, 1, ?)");
+        $stmt->execute([$start, $end, $username]);
+        
+        writeLog($pdo, $username, '점검시작', '성공', $duration . '분');
+        echo "<script>alert('점검이 시작되었습니다.');location.href='index.php';</script>"; 
+        exit();
     }
     // 공지 등록 처리
     if (isset($_POST['add_notice'], $_POST['notice_title'], $_POST['notice_content'])) {
@@ -123,10 +140,11 @@ $notices = $pdo->query("SELECT * FROM notices ORDER BY created_at DESC LIMIT 2")
 
 // [유지보수 모드 해제 처리] - 관리자만 가능. 점검 종료 시 사용
 if (isset($_POST['unset_maintenance'])) {
-    $pdo->exec("UPDATE maintenance SET is_active=0");
     $username = $_SESSION['admin'] ?? '';
+    $pdo->exec("UPDATE maintenance SET is_active=0");
     writeLog($pdo, $username, '점검종료', '성공', '');
-    echo "<script>alert('점검이 종료되었습니다.');location.href='index.php';</script>"; exit();
+    echo "<script>alert('점검이 종료되었습니다.');location.href='index.php';</script>"; 
+    exit();
 }
 ?>
 <!DOCTYPE html>
@@ -177,14 +195,55 @@ if (isset($_POST['unset_maintenance'])) {
         <li><a href="faults.php"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm0-4h-2V7h2v8z" fill="#fff"/></svg>고장</a></li>
         <?php if (isset($_SESSION['admin'])): ?>
         <li><a href="logs.php"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 6v18h18V6H3zm16 16H5V8h14v14zm-7-2h2v-2h-2v2zm0-4h2v-4h-2v4z" fill="#fff"/></svg>로그</a></li>
+        <li style="position:relative;">
+          <button id="notifyBtn" style="background:none;border:none;cursor:pointer;position:relative;">
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9v5.28l-1.29 1.29A1 1 0 005 17h14a1 1 0 00.71-1.71L19 14.28V9c0-3.87-3.13-7-7-7zm0 18a2 2 0 002-2H10a2 2 0 002 2z" fill="#fff"/></svg>
+            <span id="notifyBadge" style="position:absolute;top:-4px;right:-4px;background:#ff4757;color:#fff;font-size:0.8rem;padding:2px 6px;border-radius:12px;display:none;">0</span>
+          </button>
+          <div id="notifyDropdown" style="display:none;position:absolute;right:0;top:36px;min-width:320px;max-width:400px;z-index:1000;background:#fff;border-radius:10px;box-shadow:0 4px 24px rgba(0,0,0,0.18);overflow:hidden;">
+            <div style="padding:12px 16px;font-weight:700;font-size:1.1rem;background:#005BAC;color:#fff;">실시간 알림</div>
+            <div id="notifyList" style="max-height:340px;overflow-y:auto;"></div>
+            <div style="padding:8px 0;text-align:center;background:#f5f7fa;font-size:0.95rem;">
+              <a href="logs.php" style="color:#005BAC;text-decoration:underline;">전체 로그 보기</a>
+            </div>
+          </div>
+        </li>
         <?php endif; ?>
         <li><a href="logout.php"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16 13v-2H7V8l-5 4 5 4v-3h9zm3-10H5c-1.1 0-2 .9-2 2v6h2V5h14v14H5v-6H3v6c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z" fill="#fff"/></svg>로그아웃</a></li>
       </ul>
     </nav>
   </header>
   <main id="main-content" class="main-content" tabindex="-1" style="padding:0;background:transparent;box-shadow:none;max-width:1100px;">
+    <h2 style="display:flex;align-items:center;gap:10px;">🚀 관리자 대시보드</h2>
+    <section style="display:flex;gap:24px;flex-wrap:wrap;margin:36px 0 24px 0;justify-content:space-between;">
+      <div onclick="location.href='admin/user_management.php'" style="flex:1 1 0;min-width:200px;cursor:pointer;background:linear-gradient(120deg,#e3f0ff 60%,#f8f9fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 18px;display:flex;flex-direction:column;align-items:center;transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 4px 20px rgba(0,91,172,0.15)'" onmouseout="this.style.boxShadow='0 2px 12px rgba(0,0,0,0.07)'">
+        <span style="font-size:2.2rem;color:#005BAC;font-weight:700;display:flex;align-items:center;gap:8px;">👤 사용자</span>
+        <span style="font-size:2.1rem;font-weight:800;margin-top:8px;letter-spacing:1px;">관리</span>
+        <span style="font-size:0.9rem;font-weight:600;margin-top:4px;color:#005BAC;">계정/권한/비밀번호</span>
+      </div>
+      <div onclick="location.href='admin/file_management.php'" style="flex:1 1 0;min-width:200px;cursor:pointer;background:linear-gradient(120deg,#f8e3ff 60%,#f9f8fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 18px;display:flex;flex-direction:column;align-items:center;transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 4px 20px rgba(156,39,176,0.15)" onmouseout="this.style.boxShadow='0 2px 12px rgba(0,0,0,0.07)'">
+        <span style="font-size:2.2rem;color:#9C27B0;font-weight:700;display:flex;align-items:center;gap:8px;">📁 파일</span>
+        <span style="font-size:2.1rem;font-weight:800;margin-top:8px;letter-spacing:1px;">관리</span>
+        <span style="font-size:0.9rem;font-weight:600;margin-top:4px;color:#9C27B0;">업로드/다운로드/위험</span>
+      </div>
+      <div onclick="location.href='admin/system_status.php'" style="flex:1 1 0;min-width:200px;cursor:pointer;background:linear-gradient(120deg,#e3ffe3 60%,#f8f9fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 18px;display:flex;flex-direction:column;align-items:center;transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 4px 20px rgba(67,233,123,0.15)'" onmouseout="this.style.boxShadow='0 2px 12px rgba(0,0,0,0.07)'">
+        <span style="font-size:2.2rem;color:#43e97b;font-weight:700;display:flex;align-items:center;gap:8px;">🖥️ 시스템</span>
+        <span style="font-size:2.1rem;font-weight:800;margin-top:8px;letter-spacing:1px;">모니터링</span>
+        <span style="font-size:0.9rem;font-weight:600;margin-top:4px;color:#43e97b;">CPU/메모리/디스크</span>
+      </div>
+      <div onclick="location.href='admin/fault_maintenance_history.php'" style="flex:1 1 0;min-width:200px;cursor:pointer;background:linear-gradient(120deg,#fffbe3 60%,#f9f8fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 18px;display:flex;flex-direction:column;align-items:center;transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 4px 20px rgba(255,179,0,0.15)'" onmouseout="this.style.boxShadow='0 2px 12px rgba(0,0,0,0.07)'">
+        <span style="font-size:2.2rem;color:#FFB300;font-weight:700;display:flex;align-items:center;gap:8px;">📝 고장/점검</span>
+        <span style="font-size:2.1rem;font-weight:800;margin-top:8px;letter-spacing:1px;">이력</span>
+        <span style="font-size:0.9rem;font-weight:600;margin-top:4px;color:#FFB300;">상세/통계/파일</span>
+      </div>
+      <div onclick="location.href='admin/notice_banner_popup.php'" style="flex:1 1 0;min-width:200px;cursor:pointer;background:linear-gradient(120deg,#e3f0ff 60%,#f8f9fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 18px;display:flex;flex-direction:column;align-items:center;transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 4px 20px rgba(0,91,172,0.15)'" onmouseout="this.style.boxShadow='0 2px 12px rgba(0,0,0,0.07)'">
+        <span style="font-size:2.2rem;color:#005BAC;font-weight:700;display:flex;align-items:center;gap:8px;">📢 공지/배너/팝업</span>
+        <span style="font-size:2.1rem;font-weight:800;margin-top:8px;letter-spacing:1px;">관리</span>
+        <span style="font-size:0.9rem;font-weight:600;margin-top:4px;color:#005BAC;">공지/이벤트/노출</span>
+      </div>
+    </section>
     <?php if (isset($_SESSION['admin'])): ?>
-    <!-- 현황 카드 3분할 (관리자만) -->
+    <!-- 현황 카드 4분할 (관리자만) -->
     <section style="display:flex;gap:28px;justify-content:space-between;flex-wrap:wrap;margin:36px 0 24px 0;">
       <div style="flex:1 1 0;min-width:180px;background:linear-gradient(120deg,#e3f0ff 60%,#f8f9fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 18px;display:flex;flex-direction:column;align-items:center;">
         <span style="font-size:2.2rem;color:#005BAC;font-weight:700;display:flex;align-items:center;gap:8px;"><svg width='28' height='28' viewBox='0 0 24 24' fill='none'><circle cx='12' cy='12' r='12' fill='#FFB300'/><path d='M12 7v5' stroke='#fff' stroke-width='2.2' stroke-linecap='round'/><circle cx='12' cy='16' r='1.3' fill='#fff'/></svg>고장</span>
@@ -197,6 +256,12 @@ if (isset($_POST['unset_maintenance'])) {
       <div style="flex:1 1 0;min-width:180px;background:linear-gradient(120deg,#e3f0ff 60%,#f8f9fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 18px;display:flex;flex-direction:column;align-items:center;">
         <span style="font-size:2.2rem;color:#E53935;font-weight:700;display:flex;align-items:center;gap:8px;"><svg width='28' height='28' viewBox='0 0 24 24' fill='none'><circle cx='12' cy='12' r='12' fill='#E53935'/><path d='M12 7v5' stroke='#fff' stroke-width='2.2' stroke-linecap='round'/><circle cx='12' cy='16' r='1.3' fill='#fff'/></svg>오늘 접수</span>
         <span style="font-size:2.1rem;font-weight:800;margin-top:8px;letter-spacing:1px;"> <?= isset($today_faults) ? $today_faults : '?' ?> 건</span>
+      </div>
+      <div onclick="showSecurityModal()" style="flex:1 1 0;min-width:180px;background:linear-gradient(120deg,#ff4757 60%,#ff3742 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 18px;display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 20px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 12px rgba(0,0,0,0.07)'">
+        <span style="font-size:2.2rem;color:#fff;font-weight:700;display:flex;align-items:center;gap:8px;"><svg width='28' height='28' viewBox='0 0 24 24' fill='none'><circle cx='12' cy='12' r='12' fill='#fff'/><path d='M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z' fill='#ff4757'/></svg>보안이벤트</span>
+        <span style="font-size:2.1rem;font-weight:800;margin-top:8px;letter-spacing:1px;color:#fff;"> <?= isset($total_security_events) ? $total_security_events : '?' ?> 건</span>
+        <span style="font-size:0.9rem;font-weight:600;margin-top:4px;color:rgba(255,255,255,0.8);">오늘: <?= isset($today_security_events) ? $today_security_events : '?' ?>건</span>
+        <span style="font-size:0.8rem;font-weight:500;margin-top:8px;color:rgba(255,255,255,0.7);">클릭하여 상세보기</span>
       </div>
     </section>
     <?php endif; ?>
@@ -233,9 +298,8 @@ if (isset($_POST['unset_maintenance'])) {
       </div>
       <div style="background:linear-gradient(120deg,#f8f9fa 60%,#e3f0ff 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 24px 18px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:24px;min-height:80px;">
         <?php
-        $row = $pdo->query("SELECT is_active, end_at FROM maintenance ORDER BY id DESC LIMIT 1")->fetch();
-        $is_maintenance = $row && $row['is_active'] == 1;
-        $end_at = $row && $row['is_active'] == 1 ? $row['end_at'] : null;
+        // 점검 상태 확인 (이미 위에서 조회했으므로 재사용)
+        $end_at = $is_maintenance ? $pdo->query("SELECT end_at FROM maintenance WHERE is_active=1 ORDER BY id DESC LIMIT 1")->fetchColumn() : null;
         ?>
         <form method="post" style="margin:0;display:flex;gap:18px;flex-wrap:wrap;align-items:center;">
           <?php if (!$is_maintenance): ?>
@@ -433,10 +497,195 @@ if (isset($_POST['unset_maintenance'])) {
       <?php endif; ?>
     </section>
     <?php endif; ?>
+    
+    <!-- 보안 로그 모달 -->
+    <div id="securityModal" style="display:none;position:fixed;z-index:9999;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);justify-content:center;align-items:center;">
+      <div style="background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);padding:0;min-width:320px;max-width:90vw;max-height:90vh;overflow:hidden;position:relative;">
+        <!-- 모달 헤더 -->
+        <div style="background:linear-gradient(135deg,#ff4757,#ff3742);color:#fff;padding:24px 28px;display:flex;justify-content:space-between;align-items:center;">
+          <h3 style="margin:0;font-size:1.3rem;font-weight:700;display:flex;align-items:center;gap:8px;">
+            🚨 PHPIDS 보안 로그
+          </h3>
+          <button onclick="closeSecurityModal()" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;">&times;</button>
+        </div>
+        
+        <!-- 모달 내용 -->
+        <div style="padding:24px 28px;max-height:60vh;overflow-y:auto;">
+          <!-- 통계 정보 -->
+          <div style="display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap;">
+            <div style="background:linear-gradient(135deg,#ff4757,#ff3742);color:#fff;padding:16px;border-radius:12px;flex:1;min-width:120px;text-align:center;">
+              <div style="font-size:1.8rem;font-weight:800;" id="totalSecurityEvents">-</div>
+              <div style="font-size:0.9rem;opacity:0.9;">총 보안 이벤트</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#ffa502,#ff9500);color:#fff;padding:16px;border-radius:12px;flex:1;min-width:120px;text-align:center;">
+              <div style="font-size:1.8rem;font-weight:800;" id="todaySecurityEvents">-</div>
+              <div style="font-size:0.9rem;opacity:0.9;">오늘 이벤트</div>
+            </div>
+          </div>
+          
+          <!-- 로그 목록 -->
+          <div id="securityLogsList" style="space-y:16px;">
+            <div style="text-align:center;padding:40px;color:#666;">
+              <div style="font-size:1.2rem;margin-bottom:8px;">📊 로그를 불러오는 중...</div>
+              <div style="font-size:0.9rem;">잠시만 기다려주세요</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <script>
+    // 보안 로그 모달 관련 함수들
+    function showSecurityModal() {
+      document.getElementById('securityModal').style.display = 'flex';
+      loadSecurityLogs();
+    }
+    
+    function closeSecurityModal() {
+      document.getElementById('securityModal').style.display = 'none';
+    }
+    
+    function loadSecurityLogs() {
+      const logsContainer = document.getElementById('securityLogsList');
+      const totalEvents = document.getElementById('totalSecurityEvents');
+      const todayEvents = document.getElementById('todaySecurityEvents');
+      
+      // 로딩 상태 표시
+      logsContainer.innerHTML = `
+        <div style="text-align:center;padding:40px;color:#666;">
+          <div style="font-size:1.2rem;margin-bottom:8px;">📊 로그를 불러오는 중...</div>
+          <div style="font-size:0.9rem;">잠시만 기다려주세요</div>
+        </div>
+      `;
+      
+      // AJAX로 로그 데이터 가져오기
+      fetch('get_security_logs.php')
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            // 통계 업데이트
+            totalEvents.textContent = data.stats.total;
+            todayEvents.textContent = data.stats.today;
+            
+            // 로그 목록 렌더링
+            if (data.logs.length > 0) {
+              logsContainer.innerHTML = data.logs.map(log => `
+                <div style="background:${getImpactColor(log.impact_class)};border-radius:12px;padding:20px;margin-bottom:16px;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <span style="font-size:1.2rem;">${log.impact_icon}</span>
+                      <span style="font-weight:700;font-size:1.1rem;">보안이벤트 (${log.impact_level})</span>
+                    </div>
+                    <span style="font-size:0.9rem;opacity:0.8;">${log.formatted_time}</span>
+                  </div>
+                  <div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap;">
+                    <span style="font-size:0.9rem;opacity:0.9;">사용자: ${log.username}</span>
+                    <span style="font-size:0.9rem;opacity:0.9;">IP: ${log.ip_address}</span>
+                  </div>
+                  <div style="background:rgba(255,255,255,0.1);padding:12px;border-radius:8px;font-size:0.95rem;line-height:1.5;white-space:pre-wrap;">
+                    ${log.log_message}
+                  </div>
+                </div>
+              `).join('');
+            } else {
+              logsContainer.innerHTML = `
+                <div style="text-align:center;padding:40px;color:#666;">
+                  <div style="font-size:1.2rem;margin-bottom:8px;">🚀 보안 이벤트가 없습니다!</div>
+                  <div style="font-size:0.9rem;">시스템이 안전합니다</div>
+                </div>
+              `;
+            }
+          } else {
+            logsContainer.innerHTML = `
+              <div style="text-align:center;padding:40px;color:#e74c3c;">
+                <div style="font-size:1.2rem;margin-bottom:8px;">❌ 오류가 발생했습니다</div>
+                <div style="font-size:0.9rem;">${data.error || '알 수 없는 오류'}</div>
+              </div>
+            `;
+          }
+        })
+        .catch(error => {
+          logsContainer.innerHTML = `
+            <div style="text-align:center;padding:40px;color:#e74c3c;">
+              <div style="font-size:1.2rem;margin-bottom:8px;">❌ 네트워크 오류</div>
+              <div style="font-size:0.9rem;">로그를 불러올 수 없습니다</div>
+            </div>
+          `;
+          console.error('Error:', error);
+        });
+    }
+    
+    function getImpactColor(impactClass) {
+      switch(impactClass) {
+        case 'danger': return 'linear-gradient(135deg,#ff4757,#ff3742)';
+        case 'warning': return 'linear-gradient(135deg,#ffa502,#ff9500)';
+        case 'info': return 'linear-gradient(135deg,#2ed573,#1e90ff)';
+        default: return 'linear-gradient(135deg,#747d8c,#57606f)';
+      }
+    }
+    
+    // 모달 외부 클릭 시 닫기
+    document.getElementById('securityModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeSecurityModal();
+      }
+    });
+    
+    // ESC 키로 모달 닫기
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && document.getElementById('securityModal').style.display === 'flex') {
+        closeSecurityModal();
+      }
+    });
+    </script>
   </main>
   <footer class="footer" role="contentinfo">
     <div>가천대학교 CPS |  <a href="#" style="color:#FFB300; text-decoration:underline;">이용약관</a> | <a href="#" style="color:#FFB300; text-decoration:underline;">개인정보처리방침</a> | 고객센터: 1234-5678</div>
     <div style="margin-top:8px;">© 2025 PLC Control</div>
   </footer>
+  <?php if (isset($_SESSION['admin'])): ?>
+  <script>
+  let notifyTimer = null;
+  function fetchNotifications() {
+    fetch('notify_api.php')
+      .then(res => res.json())
+      .then(data => {
+        const badge = document.getElementById('notifyBadge');
+        const list = document.getElementById('notifyList');
+        if (data.unread > 0) {
+          badge.textContent = data.unread;
+          badge.style.display = 'inline-block';
+        } else {
+          badge.style.display = 'none';
+        }
+        if (data.notifications.length > 0) {
+          list.innerHTML = data.notifications.map(n => `
+            <div style="padding:12px 16px;border-bottom:1px solid #eee;cursor:pointer;${n.is_read?'opacity:0.6;':''}" onclick="readNotification(${n.id}, '${n.url}')">
+              <span style="font-weight:600;">${n.type_icon} ${n.type_label}</span>
+              <span style="display:block;font-size:0.97rem;margin-top:2px;">${n.message}</span>
+              <span style="font-size:0.85rem;color:#888;float:right;">${n.time}</span>
+            </div>
+          `).join('');
+        } else {
+          list.innerHTML = '<div style="padding:24px;text-align:center;color:#888;">알림이 없습니다.</div>';
+        }
+      });
+  }
+  function readNotification(id, url) {
+    fetch('notify_api.php?action=read&id='+id)
+      .then(()=>{fetchNotifications(); if(url) location.href=url;});
+  }
+  document.getElementById('notifyBtn').onclick = function(e) {
+    e.stopPropagation();
+    const dropdown = document.getElementById('notifyDropdown');
+    dropdown.style.display = dropdown.style.display==='block?'none':'block';
+    if(dropdown.style.display==='block') fetchNotifications();
+  };
+  document.body.onclick = function() {
+    document.getElementById('notifyDropdown').style.display = 'none';
+  };
+  notifyTimer = setInterval(fetchNotifications, 10000); // 10초마다 갱신
+  </script>
+  <?php endif; ?>
 </body>
 </html>

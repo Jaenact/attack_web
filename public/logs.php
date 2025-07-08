@@ -46,32 +46,58 @@ $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $offset = ($current_page - 1) * $logs_per_page;
 $total_logs = $pdo->query("SELECT COUNT(*) FROM logs")->fetchColumn();
 $total_pages = ceil($total_logs / $logs_per_page);
-if ($group_by_ip) {
-    $sql = "SELECT ip_address, COUNT(*) as cnt, MIN(created_at) as first_time, MAX(created_at) as last_time FROM logs $where_sql GROUP BY ip_address ORDER BY last_time DESC LIMIT :limit OFFSET :offset";
-    $stmt = $pdo->prepare($sql);
-    foreach ($params as $k => $v) $stmt->bindValue(":$k", $v);
-    $stmt->bindValue(':limit', $logs_per_page, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-    $stmt->execute();
-    $ip_groups = $stmt->fetchAll();
-} else {
-    $sql = "SELECT * FROM logs $where_sql ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
-    $stmt = $pdo->prepare($sql);
-    foreach ($params as $k => $v) $stmt->bindValue(":$k", $v);
-    $stmt->bindValue(':limit', $logs_per_page, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-    $stmt->execute();
-    $logs = $stmt->fetchAll();
+try {
+    if ($group_by_ip) {
+        $sql = "SELECT ip_address, COUNT(*) as cnt, MIN(created_at) as first_time, MAX(created_at) as last_time FROM logs $where_sql GROUP BY ip_address ORDER BY last_time DESC LIMIT :limit OFFSET :offset";
+        $stmt = $pdo->prepare($sql);
+        foreach ($params as $k => $v) $stmt->bindValue(":$k", $v);
+        $stmt->bindValue(':limit', $logs_per_page, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $ip_groups = $stmt->fetchAll();
+    } else {
+        $sql = "SELECT * FROM logs $where_sql ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
+        $stmt = $pdo->prepare($sql);
+        foreach ($params as $k => $v) $stmt->bindValue(":$k", $v);
+        $stmt->bindValue(':limit', $logs_per_page, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $logs = $stmt->fetchAll();
+    }
+} catch (Exception $e) {
+    echo '<div style="color:red;font-weight:bold;">[쿼리 오류] ' . htmlspecialchars($e->getMessage()) . '</div>';
+    echo '<pre>SQL: ' . htmlspecialchars($sql) . "\nPARAMS: " . print_r($params, true) . '</pre>';
+}
+if (!isset($logs)) {
+    echo '<div style="color:red;font-weight:bold;">[오류] $logs 변수가 정의되지 않았습니다.</div>';
+    $logs = [];
+}
+// 로그 목록을 불러온 후, 사용자 이름 매핑
+$name_map = [];
+if (isset($logs) && is_array($logs) && count($logs) > 0) {
+    $usernames = array_unique(array_column($logs, 'username'));
+    $usernames = array_filter($usernames, function($v) { return $v !== null && $v !== ''; }); // 빈값 제거
+    if (count($usernames) > 0) {
+        $in = implode(',', array_fill(0, count($usernames), '?'));
+        $sql = "SELECT username, name FROM users WHERE username IN ($in)";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(array_values($usernames));
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $name_map[$row['username']] = $row['name'];
+        }
+    }
 }
 function logTypeInfo($message) {
     $types = [
         '로그인 성공' => ['success', '✅'],
         '로그인 실패' => ['error', '❌'],
         '로그아웃' => ['info', '🔓'],
-        '고장 접수' => ['warning', '🚨'],
+        '고장 접수' => ['warning', '🆘'],
         '고장 수정' => ['warning', '✏️'],
         '고장 삭제' => ['danger', '❌'],
         '장비 제어' => ['primary', '⚙️'],
+        '공격감지' => ['danger', '🚨'],
+        'PHPIDS' => ['danger', '🚨'],
     ];
     foreach ($types as $k => $v) {
         if (strpos($message, $k) !== false) return $v;
@@ -283,28 +309,34 @@ function maskIP($ip) {
       <?php if (count($logs) > 0): ?>
         <?php foreach ($logs as $log): list($type, $icon) = logTypeInfo($log['log_message']); ?>
           <div class="log-card" tabindex="0" data-log='<?= htmlspecialchars(json_encode(["id"=>$log["id"]], JSON_UNESCAPED_UNICODE)) ?>' data-message="<?= htmlspecialchars($log['log_message']) ?>" data-type="<?= $type ?>" data-icon="<?= $icon ?>" data-user="<?= htmlspecialchars($log['username']) ?>" data-time="<?= date('s', strtotime($log['created_at'])) ?>초" data-ip="<?= htmlspecialchars($log['ip_address']) ?>">
-            <span class="log-badge <?= $type ?>"><?= $icon ?> <?=
-              (strpos($log['log_message'], '장비 제어')!==false ? '장비제어' :
-              (strpos($log['log_message'], '고장 삭제')!==false ? '고장삭제' :
-              (strpos($log['log_message'], '고장 접수')!==false ? '고장접수' :
-              (strpos($log['log_message'], '고장 수정')!==false ? '고장수정' :
-              (strpos($log['log_message'], '로그인 성공')!==false ? '로그인' :
-              (strpos($log['log_message'], '로그인 실패')!==false ? '로그인실패' :
-              (strpos($log['log_message'], '로그아웃')!==false ? '로그아웃' : '기타'))))))
-            ) ?></span>
+            <span class="log-badge <?= $type ?>"><?= $icon ?> <?php
+              if (strpos($log['log_message'], '장비 제어')!==false)      echo '장비제어';
+              else if (strpos($log['log_message'], '고장 삭제')!==false) echo '고장삭제';
+              else if (strpos($log['log_message'], '고장 접수')!==false) echo '고장접수';
+              else if (strpos($log['log_message'], '고장 수정')!==false) echo '고장수정';
+              else if (strpos($log['log_message'], '로그인 성공')!==false) echo '로그인';
+              else if (strpos($log['log_message'], '로그인 실패')!==false) echo '로그인실패';
+              else if (strpos($log['log_message'], '로그아웃')!==false) echo '로그아웃';
+              else if (strpos($log['log_message'], '공격감지')!==false) echo '공격감지';
+              else if (strpos($log['log_message'], 'PHPIDS')!==false) echo '공격감지';
+              else echo '기타';
+            ?></span>
             <div class="log-meta">
-              <span class="log-user">사용자: <?= htmlspecialchars($log['username']) ?></span>
+              <span class="log-user">사용자: <?= htmlspecialchars(isset($name_map[$log['username']]) && $name_map[$log['username']] ? $name_map[$log['username']] : $log['username']) ?></span>
               <span class="log-time">시간: <?= date('s', strtotime($log['created_at'])) ?>초</span>
               <span class="log-ip">IP: <?= htmlspecialchars(maskIP($log['ip_address'])) ?></span>
-              <span class="log-simple">활동: <?=
-                (strpos($log['log_message'], '장비 제어')!==false ? '장비제어' :
-                (strpos($log['log_message'], '고장 삭제')!==false ? '고장삭제' :
-                (strpos($log['log_message'], '고장 접수')!==false ? '고장접수' :
-                (strpos($log['log_message'], '고장 수정')!==false ? '고장수정' :
-                (strpos($log['log_message'], '로그인 성공')!==false ? '로그인' :
-                (strpos($log['log_message'], '로그인 실패')!==false ? '로그인실패' :
-                (strpos($log['log_message'], '로그아웃')!==false ? '로그아웃' : '기타'))))))
-              ) ?></span>
+              <span class="log-simple">활동: <?php
+                if (strpos($log['log_message'], '장비 제어')!==false)      echo '장비제어';
+                else if (strpos($log['log_message'], '고장 삭제')!==false) echo '고장삭제';
+                else if (strpos($log['log_message'], '고장 접수')!==false) echo '고장접수';
+                else if (strpos($log['log_message'], '고장 수정')!==false) echo '고장수정';
+                else if (strpos($log['log_message'], '로그인 성공')!==false) echo '로그인';
+                else if (strpos($log['log_message'], '로그인 실패')!==false) echo '로그인실패';
+                else if (strpos($log['log_message'], '로그아웃')!==false) echo '로그아웃';
+                else if (strpos($log['log_message'], '공격감지')!==false) echo '공격감지';
+                else if (strpos($log['log_message'], 'PHPIDS')!==false) echo '공격감지';
+                else echo '기타';
+              ?></span>
             </div>
           </div>
         <?php endforeach; ?>

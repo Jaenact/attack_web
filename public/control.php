@@ -8,6 +8,21 @@ require_once '../src/db/db.php';
 require_once '../src/log/log_function.php';
 // require_once '../src/db/maintenance_check.php';
 
+// PHPIDS 라이브러리 로딩
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Init.php';
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Monitor.php';
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Report.php';
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Filter/Storage.php';
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Caching/CacheFactory.php';
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Caching/CacheInterface.php';
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Caching/FileCache.php';
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Filter.php';
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Event.php';
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Converter.php';
+
+use IDS\Init;
+use IDS\Monitor;
+
 // 로그인 체크
 if (!isset($_SESSION['admin']) && !isset($_SESSION['guest'])) {
     header('Location: login.php');
@@ -26,8 +41,33 @@ $currentRpm = $row ? $row['rpm'] : 0;
 // admin만 POST 요청 처리 가능
 if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'];
+    $rpm = $_POST['rpm'] ?? $currentRpm;
+    // --- PHPIDS 공격 탐지: 입력값만 별도 검사 ---
+    try {
+        $request = [
+            'POST' => [
+                'action' => $action,
+                'rpm' => $rpm
+            ]
+        ];
+        $init = Init::init(__DIR__ . '/../PHPIDS/lib/IDS/Config/Config.ini.php');
+        $ids = new Monitor($init);
+        $result = $ids->run($request);
+        if (!$result->isEmpty()) {
+            $impact = $result->getImpact();
+            $logMessage = 'PHPIDS 제어 입력값 공격 감지! 임팩트: ' . $impact . ', 상세: ' . print_r($result, true);
+            $ip = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+            $stmt = $pdo->prepare('INSERT INTO logs (username, action, log_message, ip_address) VALUES (?, ?, ?, ?)');
+            $stmt->execute([$currentUser, '공격감지', $logMessage, $ip]);
+        }
+    } catch (Exception $e) {
+        // PHPIDS 오류 시 로그 기록
+        $logMessage = 'PHPIDS 오류: ' . $e->getMessage();
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+        $stmt = $pdo->prepare('INSERT INTO logs (username, action, log_message, ip_address) VALUES (?, ?, ?, ?)');
+        $stmt->execute([$currentUser, 'PHPIDS오류', $logMessage, $ip]);
+    }
     if ($action === 'on' || $action === 'off') {
-        $rpm = $_POST['rpm'] ?? $currentRpm;
         $pdo->prepare("UPDATE machine_status SET status=?, rpm=? WHERE id=1")->execute([$action, $rpm]);
         $logMessage = "장비 제어 - 상태변경: ".$row['status']." → ".$action;
         if ($rpm != $row['rpm']) {
@@ -41,7 +81,6 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     // 회전수만 적용
     if ($action === 'apply_rpm') {
-        $rpm = $_POST['rpm'] ?? $currentRpm;
         $pdo->prepare("UPDATE machine_status SET rpm=? WHERE id=1")->execute([$rpm]);
         $logMessage = "장비 제어 - 회전수변경: ".$row['rpm']." → ".$rpm." RPM (상태: ".$row['status'].")";
         writeLog($pdo, $currentUser, '장비제어', '성공', $logMessage);

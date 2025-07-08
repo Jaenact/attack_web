@@ -1,7 +1,7 @@
 <?php
 session_start();
 require_once '../db/db.php';
-require_once '../../src/log/log_function.php';
+require_once '../log/log_function.php';
 
 if (!isset($_SESSION['admin']) && !isset($_SESSION['guest'])) {
     http_response_code(403);
@@ -11,10 +11,9 @@ if (!isset($_SESSION['admin']) && !isset($_SESSION['guest'])) {
 
 $userType = isset($_SESSION['admin']) ? 'admin' : 'guest';
 $username = $_SESSION['admin'] ?? $_SESSION['guest'];
-$table = $userType === 'admin' ? 'admins' : 'guests';
 
 // 기존 정보 조회
-$stmt = $pdo->prepare("SELECT * FROM $table WHERE username = :username");
+$stmt = $pdo->prepare("SELECT * FROM users WHERE username = :username");
 $stmt->execute(['username' => $username]);
 $user = $stmt->fetch();
 
@@ -40,7 +39,7 @@ if (isset($_FILES['profile_img']) && $_FILES['profile_img']['error'] === UPLOAD_
 }
 
 // DB 업데이트
-$stmt = $pdo->prepare("UPDATE $table SET name = :name, phone = :phone, profile_img = :profile_img WHERE username = :username");
+$stmt = $pdo->prepare("UPDATE users SET name = :name, phone = :phone, profile_img = :profile_img WHERE username = :username");
 $stmt->execute([
     'name' => $name,
     'phone' => $phone,
@@ -48,12 +47,10 @@ $stmt->execute([
     'username' => $username
 ]);
 
-// user_id, user_type 파라미터가 있을 때 해당 사용자 정보 조회/수정 (관리자만)
-if (isset($_GET['get']) && isset($_GET['user_id']) && isset($_GET['user_type']) && isset($_SESSION['admin'])) {
+// user_id 파라미터가 있을 때 해당 사용자 정보 조회/수정 (관리자만)
+if (isset($_GET['get']) && isset($_GET['user_id']) && isset($_SESSION['admin'])) {
     $user_id = $_GET['user_id'];
-    $user_type = $_GET['user_type'];
-    $table = $user_type === 'admin' ? 'admins' : 'guests';
-    $stmt = $pdo->prepare("SELECT * FROM $table WHERE id = :id");
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE id = :id");
     $stmt->execute(['id' => $user_id]);
     $user = $stmt->fetch();
     header('Content-Type: application/json');
@@ -65,12 +62,10 @@ if (isset($_GET['get']) && isset($_GET['user_id']) && isset($_GET['user_type']) 
     exit();
 }
 
-// POST로 user_id, user_type이 있으면 해당 사용자 정보 수정 (관리자만)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['user_id']) && isset($_POST['user_type']) && isset($_SESSION['admin'])) {
+// POST로 user_id가 있으면 해당 사용자 정보 수정 (관리자만)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['user_id']) && isset($_SESSION['admin'])) {
     $user_id = $_POST['user_id'];
-    $user_type = $_POST['user_type'];
-    $table = $user_type === 'admin' ? 'admins' : 'guests';
-    $stmt = $pdo->prepare("SELECT * FROM $table WHERE id = :id");
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE id = :id");
     $stmt->execute(['id' => $user_id]);
     $user = $stmt->fetch();
     $name = $_POST['name'] ?? '';
@@ -90,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['user_id']) && isset($
             $profile_img = $new_name;
         }
     }
-    $stmt = $pdo->prepare("UPDATE $table SET name = :name, phone = :phone, profile_img = :profile_img WHERE id = :id");
+    $stmt = $pdo->prepare("UPDATE users SET name = :name, phone = :phone, profile_img = :profile_img WHERE id = :id");
     $stmt->execute([
         'name' => $name,
         'phone' => $phone,
@@ -105,16 +100,17 @@ if (isset($_POST['change_pw'])) {
     $current_pw = $_POST['current_pw'] ?? '';
     $new_pw = $_POST['new_pw'] ?? '';
     // 1. 현재 비밀번호 확인
-    $stmt = $pdo->prepare("SELECT password FROM $table WHERE username = :username");
+    $stmt = $pdo->prepare("SELECT password FROM users WHERE username = :username");
     $stmt->execute(['username' => $username]);
     $row = $stmt->fetch();
-    if (!$row || $row['password'] !== $current_pw) {
+    if (!$row || !password_verify($current_pw, $row['password'])) {
         echo json_encode(['success'=>false, 'msg'=>'현재 비밀번호가 일치하지 않습니다.']);
         exit();
     }
-    // 2. 새 비밀번호 평문 저장
-    $stmt = $pdo->prepare("UPDATE $table SET password = :pw WHERE username = :username");
-    $stmt->execute(['pw'=>$new_pw, 'username'=>$username]);
+    // 2. 새 비밀번호 해시 저장
+    $hashed_pw = password_hash($new_pw, PASSWORD_DEFAULT);
+    $stmt = $pdo->prepare("UPDATE users SET password = :pw WHERE username = :username");
+    $stmt->execute(['pw'=>$hashed_pw, 'username'=>$username]);
     echo json_encode(['success'=>true, 'msg'=>'비밀번호가 성공적으로 변경되었습니다.']);
     exit();
 }

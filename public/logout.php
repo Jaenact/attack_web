@@ -9,11 +9,10 @@ require_once '../src/log/log_function.php';
 
 // 로그아웃 전에 사용자 정보 저장
 $currentUser = $_SESSION['admin'] ?? $_SESSION['guest'] ?? 'Unknown';
-$userType = isset($_SESSION['admin']) ? '관리자' : (isset($_SESSION['guest']) ? '게스트' : 'Unknown');
+$userRole = $_SESSION['user_role'] ?? 'Unknown';
 
 $_SESSION = [];
 session_unset();
-
 
 if (ini_get("session.use_cookies")) {
   $params = session_get_cookie_params();
@@ -23,12 +22,10 @@ if (ini_get("session.use_cookies")) {
   );
 }
 
-
 session_destroy();
 
 // 로그아웃 로그 기록
-writeLog($pdo, $currentUser, "로그아웃", "성공", "계정: $currentUser ($userType)");
-
+writeLog($pdo, $currentUser, "로그아웃", "성공", "계정: $currentUser (역할: $userRole)");
 
 header("Location: login.php");
 exit;

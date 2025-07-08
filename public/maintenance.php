@@ -1,8 +1,20 @@
 <?php
+session_start();
 date_default_timezone_set('Asia/Seoul');
 require_once '../src/db/db.php';
 $maintenance = $pdo->query("SELECT * FROM maintenance WHERE is_active=1 ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
 $end_at = $maintenance ? $maintenance['end_at'] : null;
+
+// 등록자 이름 가져오기
+$display_name = '';
+if ($maintenance && !empty($maintenance['created_by'])) {
+    $created_by = $maintenance['created_by'];
+    // users 테이블에서 이름 조회
+    $stmt = $pdo->prepare("SELECT name FROM users WHERE username = ?");
+    $stmt->execute([$created_by]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $display_name = $row && !empty($row['name']) ? $row['name'] : $created_by;
+}
 ?>
 <!DOCTYPE html>
 <html lang="ko">
@@ -59,7 +71,7 @@ checkMaintenanceStatus();
     </div>
     <div class="info-box">
       점검 기간: <b><?= htmlspecialchars($maintenance['start_at']) ?></b> ~ <b><?= htmlspecialchars($maintenance['end_at']) ?></b><br>
-      등록자: <b><?= htmlspecialchars($maintenance['created_by']) ?></b><br>
+      등록자: <b><?= htmlspecialchars($display_name) ?></b><br>
       (예정 시간은 상황에 따라 변동될 수 있습니다)
     </div>
     <?php if ($end_at): ?>

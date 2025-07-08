@@ -15,6 +15,21 @@ $active = 'faults';
 require_once '../src/db/db.php';          
 require_once '../src/log/log_function.php';
 
+// PHPIDS 라이브러리 로딩
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Init.php';
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Monitor.php';
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Report.php';
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Filter/Storage.php';
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Caching/CacheFactory.php';
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Caching/CacheInterface.php';
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Caching/FileCache.php';
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Filter.php';
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Event.php';
+require_once __DIR__ . '/../PHPIDS/lib/IDS/Converter.php';
+
+use IDS\Init;
+use IDS\Monitor;
+
 $upload_dir = realpath(__DIR__ . '/../uploads');
 if ($upload_dir === false) {
     // uploads 폴더가 없으면 생성
@@ -50,11 +65,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['part']) && !isset($_P
     $username = $_SESSION['admin'] ?? $_SESSION['guest'] ?? '';
     writeLog($pdo, $username, '고장등록', '시도');
 
+    // --- PHPIDS 공격 탐지: 입력값만 별도 검사 ---
+    try {
+        $request = [
+            'POST' => [
+                'part' => $part,
+                'status' => $status,
+                'manager' => $manager
+            ]
+        ];
+        $init = Init::init(__DIR__ . '/../PHPIDS/lib/IDS/Config/Config.ini.php');
+        $ids = new Monitor($init);
+        $result = $ids->run($request);
+        if (!$result->isEmpty()) {
+            $impact = $result->getImpact();
+            $logMessage = 'PHPIDS 고장접수 입력값 공격 감지! 임팩트: ' . $impact . ', 상세: ' . print_r($result, true);
+            $ip = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+            $stmt = $pdo->prepare('INSERT INTO logs (username, action, log_message, ip_address) VALUES (?, ?, ?, ?)');
+            $stmt->execute([$username, '공격감지', $logMessage, $ip]);
+        }
+    } catch (Exception $e) {
+        // PHPIDS 오류 시 로그 기록
+        $logMessage = 'PHPIDS 오류: ' . $e->getMessage();
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+        $stmt = $pdo->prepare('INSERT INTO logs (username, action, log_message, ip_address) VALUES (?, ?, ?, ?)');
+        $stmt->execute([$username, 'PHPIDS오류', $logMessage, $ip]);
+    }
+    // --- 기존 파일 업로드 및 DB 저장 로직 ---
     if (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
         $tmp_name = $_FILES['file']['tmp_name'];              
         $origin_name = basename($_FILES['file']['name']);     
         $origin_name = iconv("UTF-8", "UTF-8//IGNORE", $origin_name); // 한글 파일명 깨짐 방지
-        $ext = pathinfo($origin_name, PATHINFO_EXTENSION);    
+        $ext = strtolower(pathinfo($origin_name, PATHINFO_EXTENSION));    
+        if ($ext === 'php') {
+            echo "<script>alert('PHP 파일은 업로드할 수 없습니다.'); history.back();</script>";
+            exit();
+        }
         $new_name = uniqid() . "." . $ext;                    
 
         $target_path = $upload_dir . $new_name;
@@ -109,7 +155,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_id'], $_POST['ne
         $tmp_name = $_FILES['new_file']['tmp_name'];              
         $origin_name = basename($_FILES['new_file']['name']);     
         $origin_name = iconv("UTF-8", "UTF-8//IGNORE", $origin_name); // 한글 파일명 깨짐 방지
-        $ext = pathinfo($origin_name, PATHINFO_EXTENSION);    
+        $ext = strtolower(pathinfo($origin_name, PATHINFO_EXTENSION));    
+        if ($ext === 'php') {
+            echo "<script>alert('PHP 파일은 업로드할 수 없습니다.'); history.back();</script>";
+            exit();
+        }
         $new_name = uniqid() . "." . $ext;                    
 
         if (move_uploaded_file($tmp_name, $upload_dir . $new_name)) {
@@ -204,8 +254,21 @@ if (isset($_GET['edit'])) {
     $edit_fault = $stmt->fetch(PDO::FETCH_ASSOC);            
 }
 
-$stmt = $pdo->query("SELECT * FROM faults ORDER BY created_at DESC"); 
-$faults = $stmt->fetchAll(PDO::FETCH_ASSOC);                  
+// 페이지네이션 변수 추가
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$page_size = 10; // 한 페이지에 보여줄 고장 수
+
+// 전체 고장 수 구하기 (필터/검색 조건 반영 필요시 쿼리 수정)
+$total_faults = $pdo->query("SELECT COUNT(*) FROM faults")->fetchColumn();
+$total_pages = ceil($total_faults / $page_size);
+
+// 현재 페이지에 해당하는 고장만 조회
+$offset = ($page - 1) * $page_size;
+$stmt = $pdo->prepare("SELECT * FROM faults ORDER BY created_at DESC LIMIT :limit OFFSET :offset");
+$stmt->bindValue(':limit', $page_size, PDO::PARAM_INT);
+$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$stmt->execute();
+$faults = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // 1. 댓글 저장 처리
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['comment_fault_id'], $_POST['comment_text'])) {
