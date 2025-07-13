@@ -1,0 +1,65 @@
+{
+  "name": "rotator-system-frontend",
+  "version": "1.0.0",
+  "description": "PLC Rotator System Frontend Assets",
+  "private": true,
+  "scripts": {
+    "build": "npm run build:css && npm run build:js",
+    "build:css": "sass assets/css/main.scss:assets/css/main.css --style compressed",
+    "build:js": "webpack --mode production",
+    "dev": "npm run dev:css && npm run dev:js",
+    "dev:css": "sass assets/css/main.scss:assets/css/main.css --watch",
+    "dev:js": "webpack --mode development --watch",
+    "lint": "eslint assets/js/",
+    "lint:fix": "eslint assets/js/ --fix",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "clean": "rm -rf node_modules/ && rm -rf assets/css/main.css",
+    "install:dev": "npm install && composer install",
+    "setup": "npm run install:dev && npm run build"
+  },
+  "dependencies": {
+    "bootstrap": "^5.3.0",
+    "jquery": "^3.7.0",
+    "chart.js": "^4.3.0",
+    "moment": "^2.29.4",
+    "sweetalert2": "^11.7.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.22.0",
+    "@babel/preset-env": "^7.22.0",
+    "babel-loader": "^9.1.0",
+    "css-loader": "^6.8.0",
+    "eslint": "^8.42.0",
+    "jest": "^29.5.0",
+    "mini-css-extract-plugin": "^2.7.0",
+    "sass": "^1.62.0",
+    "sass-loader": "^13.3.0",
+    "style-loader": "^3.3.0",
+    "webpack": "^5.88.0",
+    "webpack-cli": "^5.1.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead",
+    "not ie <= 11"
+  ],
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rotator-system/plc-control.git"
+  },
+  "keywords": [
+    "plc",
+    "control",
+    "industrial",
+    "dashboard",
+    "management"
+  ],
+  "author": "Development Team",
+  "license": "MIT"
+} 

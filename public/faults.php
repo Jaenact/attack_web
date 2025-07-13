@@ -116,8 +116,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['part']) && !isset($_P
     }
 
     if (!empty($part)) {                                      
-        $stmt = $pdo->prepare("INSERT INTO faults (part, filename, original_filename, status, manager) VALUES (:part, :filename, :original_filename, :status, :manager)"); 
-        $stmt->execute(['part' => $part, 'filename' => $filename, 'original_filename' => $original_filename, 'status' => $status, 'manager' => $manager]); 
+        // 현재 로그인한 사용자의 ID 가져오기
+        $currentUser = isset($_SESSION['admin']) ? $_SESSION['admin'] : $_SESSION['guest'];
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE username = :username");
+        $stmt->execute(['username' => $currentUser]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        $user_id = $user ? $user['id'] : null;
+        
+        $stmt = $pdo->prepare("INSERT INTO faults (part, filename, original_filename, status, manager, user_id) VALUES (:part, :filename, :original_filename, :status, :manager, :user_id)"); 
+        $stmt->execute(['part' => $part, 'filename' => $filename, 'original_filename' => $original_filename, 'status' => $status, 'manager' => $manager, 'user_id' => $user_id]); 
 
         $currentUser = isset($_SESSION['admin']) ? $_SESSION['admin'] : $_SESSION['guest'];
         
@@ -258,44 +265,15 @@ if (isset($_GET['edit'])) {
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $page_size = 10; // 한 페이지에 보여줄 고장 수
 
-// 전체 고장 수 구하기 (필터/검색 조건 반영 필요시 쿼리 수정)
 $total_faults = $pdo->query("SELECT COUNT(*) FROM faults")->fetchColumn();
 $total_pages = ceil($total_faults / $page_size);
 
-// 현재 페이지에 해당하는 고장만 조회
 $offset = ($page - 1) * $page_size;
-$stmt = $pdo->prepare("SELECT * FROM faults ORDER BY created_at DESC LIMIT :limit OFFSET :offset");
-$stmt->bindValue(':limit', $page_size, PDO::PARAM_INT);
-$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-$stmt->execute();
+$limit = (int)$page_size;
+$offset = (int)$offset;
+$stmt = $pdo->query("SELECT f.*, u.username as created_by FROM faults f LEFT JOIN users u ON f.user_id = u.id ORDER BY f.created_at DESC LIMIT $limit OFFSET $offset");
 $faults = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// 1. 댓글 저장 처리
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['comment_fault_id'], $_POST['comment_text'])) {
-    $fault_id = (int)$_POST['comment_fault_id'];
-    $comment = trim($_POST['comment_text']);
-    $username = $_SESSION['admin'] ?? $_SESSION['guest'];
-    if ($comment !== '') {
-        $stmt = $pdo->prepare("INSERT INTO fault_comments (fault_id, username, comment) VALUES (:fault_id, :username, :comment)");
-        $stmt->execute(['fault_id' => $fault_id, 'username' => $username, 'comment' => $comment]);
-        // 댓글수 갱신
-        $pdo->prepare("UPDATE faults SET comment_count = comment_count + 1 WHERE id = :id")->execute(['id' => $fault_id]);
-    }
-    header('Location: faults.php'); exit();
-}
-// 2. 댓글 삭제 처리
-if (isset($_GET['delete_comment'])) {
-    $comment_id = (int)$_GET['delete_comment'];
-    $stmt = $pdo->prepare("SELECT fault_id FROM fault_comments WHERE id = :id");
-    $stmt->execute(['id' => $comment_id]);
-    $row = $stmt->fetch();
-    if ($row) {
-        $fault_id = $row['fault_id'];
-        $pdo->prepare("DELETE FROM fault_comments WHERE id = :id")->execute(['id' => $comment_id]);
-        $pdo->prepare("UPDATE faults SET comment_count = GREATEST(comment_count-1,0) WHERE id = :id")->execute(['id' => $fault_id]);
-    }
-    header('Location: faults.php'); exit();
-}
 
 // [고장 게시판 상단에 검색/필터/정렬 폼 추가]
 ?>
@@ -496,6 +474,10 @@ if (isset($_GET['delete_comment'])) {
     font-size: 0.98rem;
     color: #666;
   }
+  .author {
+    font-size: 0.98rem;
+    color: #666;
+  }
   .comment-count {
     font-size: 0.98rem;
     color: #666;
@@ -575,6 +557,14 @@ if (isset($_GET['delete_comment'])) {
     transition: background 0.18s;
   }
   .btn-cancel:hover { background: #888; }
+
+  /* 임시: 고장 목록 모두 보이게 강제 */
+  .fault-list, .fault-item, .fault-list-panel {
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    max-height: none !important;
+  }
 </style>
 <body>
   <a href="#main-content" class="skip-link">본문 바로가기</a>
@@ -610,7 +600,7 @@ if (isset($_GET['delete_comment'])) {
             <option value="완료" <?= $edit_fault['status']==='완료'?'selected':'' ?>>완료</option>
           </select>
           <label for="edit_manager">담당자(선택):</label>
-          <input type="text" name="edit_manager" id="edit_manager" value="<?= htmlspecialchars($edit_fault['manager']??'') ?>" style="width:100%;margin-top:2px; border-radius:12px; border:1.5px solid #cfd8dc; padding:14px 16px; font-size:1rem; background:#fff;">
+          <input type="text" name="edit_manager" id="edit_manager" value="<?= $edit_fault['manager']??'' ?>" style="width:100%;margin-top:2px; border-radius:12px; border:1.5px solid #cfd8dc; padding:14px 16px; font-size:1rem; background:#fff;">
           <?php if ($edit_fault['filename'] && fileExists($edit_fault['filename'])): ?>
             <div class="file-info">
               📎 현재 첨부파일: 
@@ -653,8 +643,8 @@ if (isset($_GET['delete_comment'])) {
           <option value="처리중">처리중</option>
           <option value="완료">완료</option>
         </select>
-        <input type="text" name="filter_manager" placeholder="담당자 검색" value="<?= htmlspecialchars($_GET['filter_manager']??'') ?>" style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;">
-        <input type="text" name="filter_keyword" placeholder="내용/부위 검색" value="<?= htmlspecialchars($_GET['filter_keyword']??'') ?>" style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;">
+        <input type="text" name="filter_manager" placeholder="담당자 검색" value="<?= $_GET['filter_manager']??'' ?>" style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;">
+        <input type="text" name="filter_keyword" placeholder="내용/부위 검색" value="<?= $_GET['filter_keyword']??'' ?>" style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;">
         <select name="sort" style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;">
           <option value="recent">최신순</option>
           <option value="old">오래된순</option>
@@ -674,9 +664,9 @@ if (isset($_GET['delete_comment'])) {
                     ($fault['status']==='처리중' ? 'processing' : 'completed') ?>">
                     <?= htmlspecialchars($fault['status']) ?>
                   </span>
-                  <span class="manager">담당자: <?= htmlspecialchars($fault['manager']??'-') ?></span>
+                  <span class="manager">담당자: <?= $fault['manager']??'-' ?></span>
                   <span class="created">등록일: <?= $fault['created_at'] ?></span>
-                  <span class="comment-count">댓글: <?= (int)$fault['comment_count'] ?></span>
+                  <span class="author">작성자: <?= htmlspecialchars($fault['created_by'] ?? '알 수 없음') ?></span>
                 </div>
                 <?php if ($fault['filename'] && fileExists($fault['filename'])): ?>
                   <div class="file-info" style="margin-top:6px;">
@@ -687,49 +677,34 @@ if (isset($_GET['delete_comment'])) {
                 <?php endif; ?>
               </div>
               <div class="fault-sub">
-                <button class="toggle-detail">상세/댓글 보기</button>
+                <button class="toggle-detail">상세보기</button>
                 <div class="fault-detail" style="display:none;">
-                  <div style="margin-top:10px;">
-                    <button class="fault-action-btn edit" onclick="location.href='?edit=<?= $fault['id'] ?>'">
-                      ✏️ 수정
-                    </button>
-                    <button class="fault-action-btn delete" onclick="if(confirm('정말 삭제할까요?')) location.href='?delete=<?= $fault['id'] ?>'">
-                      ❌ 삭제
-                    </button>
+                  <div style="margin-top:12px;padding:16px;background:#f8f9fa;border-radius:8px;">
+                    <div style="margin-bottom:12px;font-size:0.95rem;color:#666;">
+                      <strong>📋 상세 정보</strong><br>
+                      작성자: <?= htmlspecialchars($fault['created_by'] ?? '알 수 없음') ?><br>
+                      등록일: <?= $fault['created_at'] ?><br>
+                      담당자: <?= $fault['manager']??'-' ?>
+                    </div>
+                    <div style="margin-bottom:12px;">
+                      <button class="fault-action-btn edit" onclick="location.href='?edit=<?= $fault['id'] ?>'">
+                        ✏️ 수정
+                      </button>
+                      <button class="fault-action-btn delete" onclick="if(confirm('정말 삭제할까요?')) location.href='?delete=<?= $fault['id'] ?>'">
+                        ❌ 삭제
+                      </button>
+                    </div>
+                    <?php if (isset($_SESSION['admin'])): ?>
+                      <form method="post" action="faults.php" style="margin-bottom:8px;">
+                        <input type="hidden" name="note_id" value="<?= $fault['id'] ?>">
+                        <div style="background:#fff;border:1.5px solid #3C8DBC;border-radius:10px;padding:10px 14px 8px 14px;display:flex;align-items:flex-start;gap:10px;">
+                          <span style="font-size:1.2rem;color:#3C8DBC;margin-top:2px;">📝</span>
+                          <textarea name="admin_note" placeholder="관리자 메모" style="width:100%;min-height:36px;border:none;background:transparent;resize:vertical;outline:none;font-size:1rem;"><?= htmlspecialchars($fault['admin_note']??'') ?></textarea>
+                          <button type="submit" style="background:#3C8DBC;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:600;">저장</button>
+                        </div>
+                      </form>
+                    <?php endif; ?>
                   </div>
-                  <!-- 댓글 목록 -->
-                  <div class="comment-list" style="margin-top:10px;">
-                    <strong>댓글</strong>
-                    <?php 
-                      $stmt_cmt = $pdo->prepare("SELECT * FROM fault_comments WHERE fault_id = :fid ORDER BY created_at ASC");
-                      $stmt_cmt->execute(['fid' => $fault['id']]);
-                      $comments = $stmt_cmt->fetchAll();
-                      foreach ($comments as $cmt): ?>
-                      <div class="comment-item" style="background:#fff;padding:7px 10px;margin:4px 0;border-radius:4px;">
-                        <b><?= htmlspecialchars($cmt['username']) ?></b>: <?= nl2br(htmlspecialchars($cmt['comment'])) ?>
-                        <span style="font-size:11px;color:#888;float:right;">[<?= $cmt['created_at'] ?>]</span>
-                        <?php if (($cmt['username'] === ($_SESSION['admin'] ?? $_SESSION['guest'])) || isset($_SESSION['admin'])): ?>
-                          <a href="?delete_comment=<?= $cmt['id'] ?>" style="color:red;font-size:12px;margin-left:8px;" onclick="return confirm('댓글을 삭제할까요?');">삭제</a>
-                        <?php endif; ?>
-                      </div>
-                    <?php endforeach; ?>
-                  </div>
-                  <!-- 댓글 작성 폼 -->
-                  <form method="post" action="faults.php" class="comment-form" style="display:flex;gap:0;margin-top:8px;">
-                    <input type="hidden" name="comment_fault_id" value="<?= $fault['id'] ?>">
-                    <input type="text" name="comment_text" placeholder="댓글 입력..." style="flex:1;padding:6px 8px;border-radius:4px;border:1px solid #ccc;">
-                    <button type="submit" class="btn" style="padding:6px 14px;">등록</button>
-                  </form>
-                  <?php if (isset($_SESSION['admin'])): ?>
-                    <form method="post" action="faults.php" style="margin-bottom:8px;">
-                      <input type="hidden" name="note_id" value="<?= $fault['id'] ?>">
-                      <div style="background:#f8f9fa;border:1.5px solid #3C8DBC;border-radius:10px;padding:10px 14px 8px 14px;display:flex;align-items:flex-start;gap:10px;">
-                        <span style="font-size:1.2rem;color:#3C8DBC;margin-top:2px;">📝</span>
-                        <textarea name="admin_note" placeholder="관리자 메모" style="width:100%;min-height:36px;border:none;background:transparent;resize:vertical;outline:none;font-size:1rem;"><?= htmlspecialchars($fault['admin_note']??'') ?></textarea>
-                        <button type="submit" style="background:#3C8DBC;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:600;">저장</button>
-                      </div>
-                    </form>
-                  <?php endif; ?>
                 </div>
               </div>
             </div>
@@ -759,17 +734,19 @@ if (isset($_GET['delete_comment'])) {
         this.style.height = (this.scrollHeight) + 'px';
       });
     }
-  });
-  document.querySelectorAll('.toggle-detail').forEach(btn => {
-    btn.addEventListener('click', function() {
-      const detail = this.nextElementSibling;
-      if (detail.style.display === 'none' || !detail.style.display) {
-        detail.style.display = 'block';
-        this.textContent = '상세/댓글 닫기';
-      } else {
-        detail.style.display = 'none';
-        this.textContent = '상세/댓글 보기';
-      }
+    
+    // 상세보기 토글 기능 활성화
+    document.querySelectorAll('.toggle-detail').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const detail = this.nextElementSibling;
+        if (detail.style.display === 'none' || !detail.style.display) {
+          detail.style.display = 'block';
+          this.textContent = '상세보기 닫기';
+        } else {
+          detail.style.display = 'none';
+          this.textContent = '상세보기';
+        }
+      });
     });
   });
   </script>

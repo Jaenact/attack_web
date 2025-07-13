@@ -1,0 +1,68 @@
+{
+    "name": "rotator-system/plc-control",
+    "description": "PLC Rotator Control & Integrated Management System",
+    "type": "project",
+    "keywords": ["plc", "control", "industrial", "management", "php"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Development Team",
+            "email": "dev@rotator-system.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": ">=7.4",
+        "ext-pdo": "*",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "ext-fileinfo": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.0",
+        "phpstan/phpstan": "^1.0",
+        "squizlabs/php_codesniffer": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "RotatorSystem\\": "src/"
+        },
+        "files": [
+            "src/db/db.php",
+            "src/log/log_function.php",
+            "src/auth/auth.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "RotatorSystem\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test:coverage": "phpunit --coverage-html coverage/",
+        "analyze": "phpstan analyse src/",
+        "lint": "phpcs src/",
+        "lint:fix": "phpcbf src/",
+        "security:check": "php public/test_phpids.php",
+        "setup": [
+            "@php public/create_database.php",
+            "@php public/create_admin.php"
+        ],
+        "backup": "mysqldump -u root -p rotator_system > backup_$(date +%Y%m%d_%H%M%S).sql"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true,
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "extra": {
+        "branch-alias": {
+            "dev-main": "1.0-dev"
+        }
+    }
+} 

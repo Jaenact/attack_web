@@ -213,6 +213,7 @@ if (isset($_POST['unset_maintenance'])) {
       </ul>
     </nav>
   </header>
+  <?php if (isset($_SESSION['admin'])): ?>
   <main id="main-content" class="main-content" tabindex="-1" style="padding:0;background:transparent;box-shadow:none;max-width:1100px;">
     <h2 style="display:flex;align-items:center;gap:10px;">🚀 관리자 대시보드</h2>
     <section style="display:flex;gap:24px;flex-wrap:wrap;margin:36px 0 24px 0;justify-content:space-between;">
@@ -242,7 +243,6 @@ if (isset($_POST['unset_maintenance'])) {
         <span style="font-size:0.9rem;font-weight:600;margin-top:4px;color:#005BAC;">공지/이벤트/노출</span>
       </div>
     </section>
-    <?php if (isset($_SESSION['admin'])): ?>
     <!-- 현황 카드 4분할 (관리자만) -->
     <section style="display:flex;gap:28px;justify-content:space-between;flex-wrap:wrap;margin:36px 0 24px 0;">
       <div style="flex:1 1 0;min-width:180px;background:linear-gradient(120deg,#e3f0ff 60%,#f8f9fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 18px;display:flex;flex-direction:column;align-items:center;">

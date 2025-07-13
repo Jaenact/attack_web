@@ -1,0 +1,80 @@
+# 의존성 파일
+/vendor/
+/node_modules/
+composer.lock
+package-lock.json
+yarn.lock
+
+# 빌드 파일
+/assets/css/main.css
+/assets/js/bundle.js
+/dist/
+/build/
+
+# 환경 설정 파일
+.env
+.env.local
+.env.production
+.env.staging
+config.local.php
+
+# 로그 파일
+*.log
+/logs/
+error_log
+access_log
+
+# 임시 파일
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# 업로드 파일 (개발 환경)
+/uploads/profile/
+/uploads/faults/
+/uploads/temp/
+
+# 백업 파일
+*.sql
+*.bak
+*.backup
+backup_*.sql
+
+# IDE 설정
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# 테스트 파일
+/coverage/
+/tests/coverage/
+.phpunit.result.cache
+
+# 캐시 파일
+/cache/
+*.cache
+
+# 보안 파일
+.htaccess.local
+nginx.conf.local
+
+# 데이터베이스 설정 (개발 환경)
+src/db/db_local.php
+
+# PHP 세션 파일
+/tmp/
+/sessions/
+
+# 웹팩 설정 (개발 환경)
+webpack.config.local.js
+
+# ESLint 설정 (개발 환경)
+.eslintrc.local.js
+
+# Jest 설정 (개발 환경)
+jest.config.local.js 
