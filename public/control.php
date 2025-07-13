@@ -54,8 +54,11 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $ids = new Monitor($init);
         $result = $ids->run($request);
         if (!$result->isEmpty()) {
-            $impact = $result->getImpact();
-            $logMessage = 'PHPIDS 제어 입력값 공격 감지! 임팩트: ' . $impact . ', 상세: ' . print_r($result, true);
+            $userInput = [
+                'action' => $action,
+                'rpm' => $rpm
+            ];
+            $logMessage = format_phpids_event($result, '제어', $userInput);
             $ip = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
             $stmt = $pdo->prepare('INSERT INTO logs (username, action, log_message, ip_address) VALUES (?, ?, ?, ?)');
             $stmt->execute([$currentUser, '공격감지', $logMessage, $ip]);

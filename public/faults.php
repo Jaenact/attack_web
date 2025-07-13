@@ -78,8 +78,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['part']) && !isset($_P
         $ids = new Monitor($init);
         $result = $ids->run($request);
         if (!$result->isEmpty()) {
-            $impact = $result->getImpact();
-            $logMessage = 'PHPIDS 고장접수 입력값 공격 감지! 임팩트: ' . $impact . ', 상세: ' . print_r($result, true);
+            $userInput = [
+                'part' => $part,
+                'status' => $status,
+                'manager' => $manager
+            ];
+            $logMessage = format_phpids_event($result, '고장접수', $userInput);
             $ip = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
             $stmt = $pdo->prepare('INSERT INTO logs (username, action, log_message, ip_address) VALUES (?, ?, ?, ?)');
             $stmt->execute([$username, '공격감지', $logMessage, $ip]);

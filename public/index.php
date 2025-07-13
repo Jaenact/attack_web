@@ -559,7 +559,7 @@ if (isset($_POST['unset_maintenance'])) {
       `;
       
       // AJAX로 로그 데이터 가져오기
-      fetch('get_security_logs.php')
+      fetch('/admin/get_security_logs.php')
         .then(response => response.json())
         .then(data => {
           if (data.success) {

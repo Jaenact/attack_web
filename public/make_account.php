@@ -54,8 +54,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $ids = new \IDS\Monitor($init);
             $result = $ids->run($request);
             if (!$result->isEmpty()) {
-                $impact = $result->getImpact();
-                $logMessage = 'PHPIDS 회원가입 입력값 공격 감지! 임팩트: ' . $impact . ', 상세: ' . print_r($result, true);
+                $userInput = [
+                    'username' => $username,
+                    'name' => $name,
+                    'phone' => $phone
+                ];
+                $logMessage = format_phpids_event($result, '회원가입', $userInput);
                 $ip = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
                 $stmt = $pdo->prepare('INSERT INTO logs (username, action, log_message, ip_address) VALUES (?, ?, ?, ?)');
                 $stmt->execute([$username, '공격감지', $logMessage, $ip]);
