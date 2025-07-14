@@ -34,9 +34,7 @@ access_log
 Thumbs.db
 
 # 업로드 파일 (개발 환경)
-/uploads/profile/
-/uploads/faults/
-/uploads/temp/
+/uploads/
 
 # 백업 파일
 *.sql
