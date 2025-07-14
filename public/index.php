@@ -76,6 +76,35 @@ if (isset($_SESSION['admin'])) {
   $high_impact_events = $pdo->query("SELECT COUNT(*) FROM logs WHERE (log_message LIKE '%공격감지%' OR log_message LIKE '%PHPIDS%') AND log_message LIKE '%임팩트: 2%'")->fetchColumn();
 }
 
+// --- 게스트/일반 사용자 개인화 정보 쿼리 ---
+if (isset($_SESSION['guest'])) {
+    $my_username = $_SESSION['guest'];
+    // 내 user_id 조회
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
+    $stmt->execute([$my_username]);
+    $user = $stmt->fetch();
+    $my_user_id = $user ? $user['id'] : null;
+    // 내가 쓴 고장 제보 최근 5개 (user_id 기준)
+    $my_faults = [];
+    if ($my_user_id) {
+        $stmt = $pdo->prepare("SELECT * FROM faults WHERE user_id = ? ORDER BY created_at DESC LIMIT 5");
+        $stmt->execute([$my_user_id]);
+        $my_faults = $stmt->fetchAll();
+    }
+    // 내가 쓴 취약점 제보 최근 5개
+    $stmt = $pdo->prepare("SELECT * FROM vulnerability_reports WHERE reported_by = ? ORDER BY created_at DESC LIMIT 5");
+    $stmt->execute([$my_username]);
+    $my_vul_reports = $stmt->fetchAll();
+    // 내 최근 알림(전체 대상 포함)
+    $stmt = $pdo->prepare("SELECT * FROM notifications WHERE target = ? OR target = 'all' ORDER BY created_at DESC LIMIT 5");
+    $stmt->execute([$my_username]);
+    $my_notifications = $stmt->fetchAll();
+    // 내 최근 활동 로그
+    $stmt = $pdo->prepare("SELECT * FROM logs WHERE username = ? ORDER BY created_at DESC LIMIT 5");
+    $stmt->execute([$my_username]);
+    $my_logs = $stmt->fetchAll();
+}
+
 // [공지사항 등록/수정/삭제] - 관리자만 가능. 공지사항 관리 및 로그 기록
 if (isset($_SESSION['admin'])) {
     // 점검 시작 처리
@@ -195,6 +224,10 @@ if (isset($_POST['unset_maintenance'])) {
         <li><a href="faults.php"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm0-4h-2V7h2v8z" fill="#fff"/></svg>고장</a></li>
         <?php if (isset($_SESSION['admin'])): ?>
         <li><a href="logs.php"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 6v18h18V6H3zm16 16H5V8h14v14zm-7-2h2v-2h-2v2zm0-4h2v-4h-2v4z" fill="#fff"/></svg>로그</a></li>
+
+        <?php if (!isset($_SESSION['admin'])): ?>
+        <li><a href="vulnerability_report.php"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" fill="#fff"/></svg>취약점제보</a></li>
+        <?php endif; ?>
         <li style="position:relative;">
           <button id="notifyBtn" style="background:none;border:none;cursor:pointer;position:relative;">
             <svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9v5.28l-1.29 1.29A1 1 0 005 17h14a1 1 0 00.71-1.71L19 14.28V9c0-3.87-3.13-7-7-7zm0 18a2 2 0 002-2H10a2 2 0 002 2z" fill="#fff"/></svg>
@@ -216,288 +249,275 @@ if (isset($_POST['unset_maintenance'])) {
   <?php if (isset($_SESSION['admin'])): ?>
   <main id="main-content" class="main-content" tabindex="-1" style="padding:0;background:transparent;box-shadow:none;max-width:1100px;">
     <h2 style="display:flex;align-items:center;gap:10px;">🚀 관리자 대시보드</h2>
-    <section style="display:flex;gap:24px;flex-wrap:wrap;margin:36px 0 24px 0;justify-content:space-between;">
-      <div onclick="location.href='admin/user_management.php'" style="flex:1 1 0;min-width:200px;cursor:pointer;background:linear-gradient(120deg,#e3f0ff 60%,#f8f9fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 18px;display:flex;flex-direction:column;align-items:center;transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 4px 20px rgba(0,91,172,0.15)'" onmouseout="this.style.boxShadow='0 2px 12px rgba(0,0,0,0.07)'">
-        <span style="font-size:2.2rem;color:#005BAC;font-weight:700;display:flex;align-items:center;gap:8px;">👤 사용자</span>
-        <span style="font-size:2.1rem;font-weight:800;margin-top:8px;letter-spacing:1px;">관리</span>
-        <span style="font-size:0.9rem;font-weight:600;margin-top:4px;color:#005BAC;">계정/권한/비밀번호</span>
+    <!-- 상단 요약 카드 (한 줄, 5개) -->
+    <section style="display:flex;gap:18px;flex-wrap:wrap;margin:32px 0 24px 0;justify-content:space-between;">
+      <div style="flex:1 1 0;min-width:160px;background:linear-gradient(120deg,#fffbe3 60%,#f9f8fa 100%);border-radius:14px;box-shadow:0 2px 8px rgba(255,179,0,0.10);padding:18px 10px;display:flex;flex-direction:column;align-items:center;">
+        <span style="font-size:1.3rem;color:#FFB300;font-weight:700;">🛠️ 오늘 고장</span>
+        <span style="font-size:1.5rem;font-weight:800;margin-top:6px;letter-spacing:1px;"> <?= isset($today_faults) ? $today_faults : '0' ?> 건</span>
       </div>
-      <div onclick="location.href='admin/file_management.php'" style="flex:1 1 0;min-width:200px;cursor:pointer;background:linear-gradient(120deg,#f8e3ff 60%,#f9f8fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 18px;display:flex;flex-direction:column;align-items:center;transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 4px 20px rgba(156,39,176,0.15)" onmouseout="this.style.boxShadow='0 2px 12px rgba(0,0,0,0.07)'">
-        <span style="font-size:2.2rem;color:#9C27B0;font-weight:700;display:flex;align-items:center;gap:8px;">📁 파일</span>
-        <span style="font-size:2.1rem;font-weight:800;margin-top:8px;letter-spacing:1px;">관리</span>
-        <span style="font-size:0.9rem;font-weight:600;margin-top:4px;color:#9C27B0;">업로드/다운로드/위험</span>
+      <div style="flex:1 1 0;min-width:160px;background:linear-gradient(120deg,#ffe3e3 60%,#f8f9fa 100%);border-radius:14px;box-shadow:0 2px 8px rgba(255,71,87,0.10);padding:18px 10px;display:flex;flex-direction:column;align-items:center;">
+        <span style="font-size:1.3rem;color:#ff4757;font-weight:700;">⏳ 미처리 고장</span>
+        <span style="font-size:1.5rem;font-weight:800;margin-top:6px;letter-spacing:1px;"> <?= isset($pending_faults) ? $pending_faults : '0' ?> 건</span>
       </div>
-      <div onclick="location.href='admin/system_status.php'" style="flex:1 1 0;min-width:200px;cursor:pointer;background:linear-gradient(120deg,#e3ffe3 60%,#f8f9fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 18px;display:flex;flex-direction:column;align-items:center;transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 4px 20px rgba(67,233,123,0.15)'" onmouseout="this.style.boxShadow='0 2px 12px rgba(0,0,0,0.07)'">
-        <span style="font-size:2.2rem;color:#43e97b;font-weight:700;display:flex;align-items:center;gap:8px;">🖥️ 시스템</span>
-        <span style="font-size:2.1rem;font-weight:800;margin-top:8px;letter-spacing:1px;">모니터링</span>
-        <span style="font-size:0.9rem;font-weight:600;margin-top:4px;color:#43e97b;">CPU/메모리/디스크</span>
+      <div id="maintenanceCard" onclick="toggleMaintenanceForm()" style="flex:1 1 0;min-width:160px;cursor:pointer;background:linear-gradient(120deg,#e3ffe3 60%,#f8f9fa 100%);border-radius:14px;box-shadow:0 2px 8px rgba(67,233,123,0.10);padding:18px 10px;display:flex;flex-direction:column;align-items:center;position:relative;transition:box-shadow 0.2s;">
+        <span style="font-size:1.3rem;color:#43e97b;font-weight:700;">🔧 점검상태</span>
+        <span style="font-size:1.2rem;font-weight:700;margin-top:6px;letter-spacing:1px;"> <?= isset($is_maintenance) ? ($is_maintenance ? '점검중' : '정상') : '?' ?> </span>
+        <div id="maintenanceForm" style="display:none;position:absolute;top:100%;left:0;width:100%;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.12);padding:18px 12px;z-index:10;">
+          <form method="post" style="margin:0;display:flex;flex-direction:column;gap:10px;align-items:center;">
+            <?php if (!$is_maintenance): ?>
+              <input type="hidden" name="set_maintenance" value="1">
+              <button type="submit" name="duration" value="30" style="background:#1976D2;color:#fff;padding:10px 0;border:none;border-radius:8px;font-weight:700;font-size:1rem;min-width:120px;">30분 점검</button>
+              <button type="submit" name="duration" value="60" style="background:#1976D2;color:#fff;padding:10px 0;border:none;border-radius:8px;font-weight:700;font-size:1rem;min-width:120px;">1시간 점검</button>
+              <button type="submit" name="duration" value="90" style="background:#1976D2;color:#fff;padding:10px 0;border:none;border-radius:8px;font-weight:700;font-size:1rem;min-width:120px;">1시간 30분 점검</button>
+              <button type="submit" name="duration" value="120" style="background:#1976D2;color:#fff;padding:10px 0;border:none;border-radius:8px;font-weight:700;font-size:1rem;min-width:120px;">2시간 점검</button>
+            <?php else: ?>
+              <button type="submit" name="unset_maintenance" style="background:#005BAC;color:#fff;padding:10px 0;border:none;border-radius:8px;font-weight:700;font-size:1rem;min-width:120px;">점검 종료</button>
+            <?php endif; ?>
+          </form>
+        </div>
       </div>
-      <div onclick="location.href='admin/fault_maintenance_history.php'" style="flex:1 1 0;min-width:200px;cursor:pointer;background:linear-gradient(120deg,#fffbe3 60%,#f9f8fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 18px;display:flex;flex-direction:column;align-items:center;transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 4px 20px rgba(255,179,0,0.15)'" onmouseout="this.style.boxShadow='0 2px 12px rgba(0,0,0,0.07)'">
-        <span style="font-size:2.2rem;color:#FFB300;font-weight:700;display:flex;align-items:center;gap:8px;">📝 고장/점검</span>
-        <span style="font-size:2.1rem;font-weight:800;margin-top:8px;letter-spacing:1px;">이력</span>
-        <span style="font-size:0.9rem;font-weight:600;margin-top:4px;color:#FFB300;">상세/통계/파일</span>
+      <div style="flex:1 1 0;min-width:160px;background:linear-gradient(120deg,#ff4757 60%,#ff3742 100%);border-radius:14px;box-shadow:0 2px 8px rgba(255,71,87,0.18);padding:18px 10px;display:flex;flex-direction:column;align-items:center;">
+        <span style="font-size:1.3rem;color:#fff;font-weight:700;display:flex;align-items:center;gap:6px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" style="margin-right:4px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>오늘 보안 이벤트</span>
+        <span style="font-size:1.5rem;font-weight:800;margin-top:6px;letter-spacing:1px;color:#fff;"> <?= isset($today_security_events) ? $today_security_events : '0' ?> 건</span>
       </div>
-      <div onclick="location.href='admin/notice_banner_popup.php'" style="flex:1 1 0;min-width:200px;cursor:pointer;background:linear-gradient(120deg,#e3f0ff 60%,#f8f9fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 18px;display:flex;flex-direction:column;align-items:center;transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 4px 20px rgba(0,91,172,0.15)'" onmouseout="this.style.boxShadow='0 2px 12px rgba(0,0,0,0.07)'">
-        <span style="font-size:2.2rem;color:#005BAC;font-weight:700;display:flex;align-items:center;gap:8px;">📢 공지/배너/팝업</span>
-        <span style="font-size:2.1rem;font-weight:800;margin-top:8px;letter-spacing:1px;">관리</span>
-        <span style="font-size:0.9rem;font-weight:600;margin-top:4px;color:#005BAC;">공지/이벤트/노출</span>
+      <div style="flex:1 1 0;min-width:160px;background:linear-gradient(120deg,#e3f0ff 60%,#f8f9fa 100%);border-radius:14px;box-shadow:0 2px 8px rgba(0,91,172,0.10);padding:18px 10px;display:flex;flex-direction:column;align-items:center;">
+        <span style="font-size:1.3rem;color:#005BAC;font-weight:700;">🔒 취약점 제보</span>
+        <span style="font-size:1.5rem;font-weight:800;margin-top:6px;letter-spacing:1px;"> <?= isset($total_vul_reports) && is_numeric($total_vul_reports) ? $total_vul_reports : '0' ?> 건</span>
       </div>
-    </section>
-    <!-- 현황 카드 4분할 (관리자만) -->
-    <section style="display:flex;gap:28px;justify-content:space-between;flex-wrap:wrap;margin:36px 0 24px 0;">
-      <div style="flex:1 1 0;min-width:180px;background:linear-gradient(120deg,#e3f0ff 60%,#f8f9fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 18px;display:flex;flex-direction:column;align-items:center;">
-        <span style="font-size:2.2rem;color:#005BAC;font-weight:700;display:flex;align-items:center;gap:8px;"><svg width='28' height='28' viewBox='0 0 24 24' fill='none'><circle cx='12' cy='12' r='12' fill='#FFB300'/><path d='M12 7v5' stroke='#fff' stroke-width='2.2' stroke-linecap='round'/><circle cx='12' cy='16' r='1.3' fill='#fff'/></svg>고장</span>
-        <span style="font-size:2.1rem;font-weight:800;margin-top:8px;letter-spacing:1px;"> <?= isset($total_faults) ? $total_faults : '?' ?> 건</span>
-      </div>
-      <div style="flex:1 1 0;min-width:180px;background:linear-gradient(120deg,#e3f0ff 60%,#f8f9fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 18px;display:flex;flex-direction:column;align-items:center;">
-        <span style="font-size:2.2rem;color:#43e97b;font-weight:700;display:flex;align-items:center;gap:8px;"><svg width='28' height='28' viewBox='0 0 24 24' fill='none'><circle cx='12' cy='12' r='12' fill='#43e97b'/><path d='M12 7v5' stroke='#fff' stroke-width='2.2' stroke-linecap='round'/><circle cx='12' cy='16' r='1.3' fill='#fff'/></svg>점검상태</span>
-        <span style="font-size:1.3rem;font-weight:700;margin-top:8px;letter-spacing:1px;"> <?= isset($is_maintenance) ? ($is_maintenance ? '점검중' : '정상') : '?' ?> </span>
-      </div>
-      <div style="flex:1 1 0;min-width:180px;background:linear-gradient(120deg,#e3f0ff 60%,#f8f9fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 18px;display:flex;flex-direction:column;align-items:center;">
-        <span style="font-size:2.2rem;color:#E53935;font-weight:700;display:flex;align-items:center;gap:8px;"><svg width='28' height='28' viewBox='0 0 24 24' fill='none'><circle cx='12' cy='12' r='12' fill='#E53935'/><path d='M12 7v5' stroke='#fff' stroke-width='2.2' stroke-linecap='round'/><circle cx='12' cy='16' r='1.3' fill='#fff'/></svg>오늘 접수</span>
-        <span style="font-size:2.1rem;font-weight:800;margin-top:8px;letter-spacing:1px;"> <?= isset($today_faults) ? $today_faults : '?' ?> 건</span>
-      </div>
-      <div onclick="showSecurityModal()" style="flex:1 1 0;min-width:180px;background:linear-gradient(120deg,#ff4757 60%,#ff3742 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 18px;display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 20px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 12px rgba(0,0,0,0.07)'">
-        <span style="font-size:2.2rem;color:#fff;font-weight:700;display:flex;align-items:center;gap:8px;"><svg width='28' height='28' viewBox='0 0 24 24' fill='none'><circle cx='12' cy='12' r='12' fill='#fff'/><path d='M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z' fill='#ff4757'/></svg>보안이벤트</span>
-        <span style="font-size:2.1rem;font-weight:800;margin-top:8px;letter-spacing:1px;color:#fff;"> <?= isset($total_security_events) ? $total_security_events : '?' ?> 건</span>
-        <span style="font-size:0.9rem;font-weight:600;margin-top:4px;color:rgba(255,255,255,0.8);">오늘: <?= isset($today_security_events) ? $today_security_events : '?' ?>건</span>
-        <span style="font-size:0.8rem;font-weight:500;margin-top:8px;color:rgba(255,255,255,0.7);">클릭하여 상세보기</span>
-      </div>
-    </section>
-    <?php endif; ?>
-    <!-- 공지사항 카드 (모든 사용자) -->
-    <?php if (count($notices) > 0): ?>
-      <section class="notice-section" style="margin:0 0 32px 0;">
-        <h3 style="color:#005BAC;font-size:1.25rem;margin-bottom:16px;display:flex;align-items:center;gap:8px;font-weight:700;">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm0-4h-2V7h2v8z" fill="#005BAC"/></svg>
-          최근 공지사항
-        </h3>
-        <div style="display:flex;gap:24px;flex-wrap:wrap;">
-          <?php foreach ($notices as $notice): ?>
-            <div style="background:linear-gradient(120deg,#f8f9fa 60%,#e3f0ff 100%);border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.06);padding:22px 28px 18px 28px;min-width:220px;max-width:340px;flex:1 1 220px;display:flex;flex-direction:column;gap:8px;transition:box-shadow 0.2s;">
-              <div style="font-weight:800;font-size:1.13rem;color:#003366;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:0.5px;">
-                <?= htmlspecialchars($notice['title']) ?>
-              </div>
-              <div style="font-size:1.01rem;color:#444;line-height:1.7;max-height:3.2em;overflow:hidden;text-overflow:ellipsis;">
-                <?= nl2br(htmlspecialchars($notice['content'])) ?>
-              </div>
-              <div style="font-size:0.97rem;color:#888;margin-top:4px;align-self:flex-end;">
-                <?= date('Y-m-d', strtotime($notice['created_at'])) ?>
-              </div>
+      <div style="flex:1 1 0;min-width:160px;background:linear-gradient(120deg,#e3f0ff 60%,#f8f9fa 100%);border-radius:14px;box-shadow:0 2px 8px rgba(0,91,172,0.10);padding:18px 10px;display:flex;flex-direction:column;align-items:center;">
+        <button id="noticeToggleBtn" style="background:#005BAC;color:#fff;padding:10px 22px;border:none;border-radius:8px;font-weight:700;font-size:1.05rem;">공지사항 관리</button>
+        <div id="noticeTogglePanel" style="display:none;margin-top:12px;text-align:left;">
+          <div style="display:flex;gap:24px;align-items:flex-start;justify-content:center;width:100%;min-width:600px;flex-wrap:nowrap;">
+            <form method="post" style="background:#e3f2fd;border-radius:12px;padding:18px 20px 14px 20px;flex:1 1 0;min-width:260px;max-width:480px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+              <h4 style="margin:0 0 8px 0;font-size:1.01rem;color:#005BAC;">새 공지 등록</h4>
+              <input type="text" name="notice_title" placeholder="공지 제목" required style="width:100%;padding:6px 8px;margin-bottom:6px;border-radius:6px;border:1.5px solid #b3c6e0;font-size:0.98rem;">
+              <textarea name="notice_content" placeholder="공지 내용" required style="width:100%;padding:6px 8px;border-radius:6px;border:1.5px solid #b3c6e0;font-size:0.98rem;min-height:36px;margin-bottom:6px;"></textarea>
+              <button type="submit" name="add_notice" style="background:#005BAC;color:#fff;padding:6px 16px;border:none;border-radius:8px;font-weight:600;font-size:0.98rem;">공지 등록</button>
+            </form>
+            <div style="background:#f8f9fa;border-radius:10px;padding:14px 16px;flex:1 1 0;min-width:260px;max-width:480px;box-shadow:0 2px 8px rgba(0,0,0,0.03);">
+              <h4 style="margin:0 0 8px 0;font-size:1.01rem;color:#005BAC;">공지사항 목록</h4>
+              <?php if (count($all_notices) > 0): ?>
+                <ul style="padding-left:0;list-style:none;max-height:180px;overflow-y:auto;">
+                  <?php foreach ($all_notices as $notice): ?>
+                    <li style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #e0e0e0;">
+                      <div style="font-weight:700;font-size:1.01rem;color:#003366;"> <?= htmlspecialchars($notice['title']) ?> </div>
+                      <div style="font-size:0.97rem;color:#444;line-height:1.5;"> <?= nl2br(htmlspecialchars($notice['content'])) ?> </div>
+                      <div style="font-size:0.92rem;color:#888;margin-top:2px;">등록일: <?= date('Y-m-d', strtotime($notice['created_at'])) ?></div>
+                      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
+                        <button type="button" onclick="showEditForm(<?= $notice['id'] ?>)" style="background:#005BAC;color:#fff;padding:4px 12px;border:none;border-radius:8px;font-weight:600;font-size:0.95rem;">수정</button>
+                        <form method="post" style="display:inline;">
+                          <input type="hidden" name="delete_notice_id" value="<?= $notice['id'] ?>">
+                          <button type="submit" style="background:#E53935;color:#fff;padding:4px 12px;border:none;border-radius:8px;font-weight:600;font-size:0.95rem;">삭제</button>
+                        </form>
+                      </div>
+                    </li>
+                  <?php endforeach; ?>
+                </ul>
+              <?php else: ?>
+                <div style="color:#888;text-align:center;">등록된 공지사항이 없습니다.</div>
+              <?php endif; ?>
             </div>
-          <?php endforeach; ?>
+          </div>
+          <style>@media (max-width: 900px) { #noticeTogglePanel > div { flex-direction:column !important; gap:12px !important; min-width:0 !important; } }</style>
         </div>
-      </section>
-    <?php endif; ?>
-    <?php if (isset($_SESSION['admin'])): ?>
-    <!-- 관리자 전용 섹션 -->
-    <section style="margin:0 0 32px 0;">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
-        <span style="background:#005BAC;color:#fff;font-size:0.98rem;font-weight:700;padding:4px 14px;border-radius:8px;">관리자 전용</span>
-        <span style="font-size:1.18rem;font-weight:700;color:#005BAC;">서버 점검 관리</span>
-      </div>
-      <div style="background:linear-gradient(120deg,#f8f9fa 60%,#e3f0ff 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:28px 24px 18px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:24px;min-height:80px;">
-        <?php
-        // 점검 상태 확인 (이미 위에서 조회했으므로 재사용)
-        $end_at = $is_maintenance ? $pdo->query("SELECT end_at FROM maintenance WHERE is_active=1 ORDER BY id DESC LIMIT 1")->fetchColumn() : null;
-        ?>
-        <form method="post" style="margin:0;display:flex;gap:18px;flex-wrap:wrap;align-items:center;">
-          <?php if (!$is_maintenance): ?>
-            <input type="hidden" name="set_maintenance" value="1">
-            <button type="submit" name="duration" value="30" style="background:#1976D2;color:#fff;padding:18px 0;border:none;border-radius:10px;font-weight:700;font-size:1.15rem;min-width:140px;letter-spacing:1px;">30분 점검</button>
-            <button type="submit" name="duration" value="60" style="background:#1976D2;color:#fff;padding:18px 0;border:none;border-radius:10px;font-weight:700;font-size:1.15rem;min-width:140px;letter-spacing:1px;">1시간 점검</button>
-            <button type="submit" name="duration" value="90" style="background:#1976D2;color:#fff;padding:18px 0;border:none;border-radius:10px;font-weight:700;font-size:1.15rem;min-width:140px;letter-spacing:1px;">1시간 30분 점검</button>
-            <button type="submit" name="duration" value="120" style="background:#1976D2;color:#fff;padding:18px 0;border:none;border-radius:10px;font-weight:700;font-size:1.15rem;min-width:140px;letter-spacing:1px;">2시간 점검</button>
-          <?php else: ?>
-            <button type="submit" name="unset_maintenance" style="background:#005BAC;color:#fff;padding:18px 0;border:none;border-radius:10px;font-weight:700;font-size:1.15rem;min-width:140px;letter-spacing:1px;">점검 종료</button>
-          <?php endif; ?>
-        </form>
-        <?php if ($is_maintenance && $end_at): ?>
-        <div id="maintenance-timer" style="font-size:1.12rem;color:#B23C2A;font-weight:600;white-space:nowrap;min-width:180px;">
-          남은 점검 시간: <span id="timer-remaining"></span>
-        </div>
-        <script>
-        function updateTimer() {
-          var endAt = new Date('<?= $end_at ?>'.replace(/-/g, '/'));
-          var now = new Date();
-          if (isNaN(endAt.getTime())) {
-            document.getElementById('timer-remaining').textContent = '시간 정보 없음';
-            return;
-          }
-          var diff = Math.floor((endAt - now) / 1000);
-          if (diff <= 0) {
-            document.getElementById('timer-remaining').textContent = '점검 종료';
-            return;
-          }
-          var h = Math.floor(diff / 3600);
-          var m = Math.floor((diff % 3600) / 60);
-          var s = diff % 60;
-          var str = (h > 0 ? h+'시간 ' : '') + (m > 0 ? m+'분 ' : '') + s+'초';
-          document.getElementById('timer-remaining').textContent = str;
-        }
-        updateTimer();
-        setInterval(updateTimer, 1000);
-        </script>
-        <?php endif; ?>
       </div>
     </section>
-    <!-- 로그 통계 차트 카드 -->
-    <section style="margin:0 0 32px 0;">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
-        <span style="background:#005BAC;color:#fff;font-size:0.98rem;font-weight:700;padding:4px 14px;border-radius:8px;">관리자 전용</span>
-        <span style="font-size:1.18rem;font-weight:700;color:#005BAC;">시스템 로그 통계</span>
+    <!-- 중앙 주요 카드 3개 (운영/시스템, 고장/점검, 보안 통합) - 좌우 넓게 가로 스크롤/반응형 -->
+    <section style="overflow-x:auto;white-space:nowrap;padding-bottom:8px;margin:36px 0 24px 0;">
+      <div style="display:inline-flex;gap:32px;min-width:700px;">
+        <div onclick="showOpsMenu(event)" style="min-width:260px;max-width:340px;cursor:pointer;background:linear-gradient(120deg,#e3f0ff 60%,#f8f9fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:36px 18px;display:flex;flex-direction:column;align-items:center;transition:box-shadow 0.2s;position:relative;">
+          <span style="font-size:2.2rem;color:#005BAC;font-weight:700;display:flex;align-items:center;gap:8px;">👤 운영/시스템</span>
+          <span style="font-size:1.1rem;font-weight:600;margin-top:8px;color:#005BAC;">계정/파일/시스템 관리</span>
+          <div class="ops-menu" style="display:none;position:absolute;top:80px;left:50%;transform:translateX(-50%);background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.13);padding:18px 0;z-index:20;min-width:180px;">
+            <button onclick="location.href='admin/user_management.php';event.stopPropagation();" style="display:block;width:100%;background:none;border:none;padding:12px 24px;font-size:1.08rem;color:#005BAC;font-weight:700;text-align:left;cursor:pointer;transition:background 0.15s;">계정 관리</button>
+            <button onclick="location.href='admin/file_management.php';event.stopPropagation();" style="display:block;width:100%;background:none;border:none;padding:12px 24px;font-size:1.08rem;color:#005BAC;font-weight:700;text-align:left;cursor:pointer;transition:background 0.15s;">파일 관리</button>
+            <button onclick="location.href='admin/system_status.php';event.stopPropagation();" style="display:block;width:100%;background:none;border:none;padding:12px 24px;font-size:1.08rem;color:#005BAC;font-weight:700;text-align:left;cursor:pointer;transition:background 0.15s;">시스템 모니터링</button>
+          </div>
+        </div>
+        <div onclick="location.href='admin/fault_maintenance_history.php'" style="min-width:260px;max-width:340px;cursor:pointer;background:linear-gradient(120deg,#fffbe3 60%,#f9f8fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(255,179,0,0.10);padding:36px 18px;display:flex;flex-direction:column;align-items:center;transition:box-shadow 0.2s;">
+          <span style="font-size:2.2rem;color:#FFB300;font-weight:700;display:flex;align-items:center;gap:8px;">📝 고장/점검</span>
+          <span style="font-size:1.1rem;font-weight:600;margin-top:8px;color:#FFB300;">이력/통계/파일</span>
+        </div>
+        <div onclick="location.href='admin/security_center.php'" style="min-width:260px;max-width:340px;cursor:pointer;background:linear-gradient(120deg,#ffe3e3 60%,#f8f9fa 100%);border-radius:16px;box-shadow:0 2px 12px rgba(255,71,87,0.12);padding:36px 18px;display:flex;flex-direction:column;align-items:center;transition:box-shadow 0.2s;">
+          <span style="font-size:2.2rem;color:#ff4757;font-weight:700;display:flex;align-items:center;gap:8px;">🛡️ 보안 통합</span>
+          <span style="font-size:1.1rem;font-weight:600;margin-top:8px;color:#ff4757;">보안 이벤트/취약점/테스트</span>
+        </div>
       </div>
+    </section>
+    <!-- 하단 차트/통계(기존 유지, 더 심플하게, 데이터 없을 때 안내) -->
+    <section style="margin:0 0 32px 0;">
       <div style="display:flex;flex-wrap:wrap;gap:40px;justify-content:center;align-items:flex-start;">
         <div style="flex:1 1 340px;min-width:280px;max-width:480px;background:linear-gradient(120deg,#f8f9fa 60%,#e3f0ff 100%);padding:28px 18px 18px 18px;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);">
           <canvas id="logChart" height="110"></canvas>
+          <div id="logChartEmpty" style="display:none;text-align:center;color:#aaa;padding:24px 0;">일별 로그 데이터가 없습니다.</div>
         </div>
         <div style="flex:1 1 260px;min-width:200px;max-width:340px;background:linear-gradient(120deg,#f8f9fa 60%,#e3f0ff 100%);padding:28px 18px 18px 18px;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);">
           <canvas id="typeChart" height="110"></canvas>
+          <div id="typeChartEmpty" style="display:none;text-align:center;color:#aaa;padding:24px 0;">유형별 로그 데이터가 없습니다.</div>
         </div>
         <div style="flex:1 1 260px;min-width:200px;max-width:340px;background:linear-gradient(120deg,#f8f9fa 60%,#e3f0ff 100%);padding:28px 18px 18px 18px;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);">
           <canvas id="userChart" height="110"></canvas>
+          <div id="userChartEmpty" style="display:none;text-align:center;color:#aaa;padding:24px 0;">사용자별 로그 데이터가 없습니다.</div>
         </div>
       </div>
     </section>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+    // 공지사항 관리 토글
+    document.getElementById('noticeToggleBtn').onclick = function() {
+      var panel = document.getElementById('noticeTogglePanel');
+      panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+    };
+    // 점검상태 카드 토글 + 애니메이션
+    function toggleMaintenanceForm() {
+      var form = document.getElementById('maintenanceForm');
+      if (form.style.display === 'block') {
+        form.style.opacity = 1;
+        form.style.transition = 'opacity 0.3s';
+        form.style.opacity = 0;
+        setTimeout(function(){form.style.display = 'none';}, 300);
+      } else {
+        form.style.display = 'block';
+        form.style.opacity = 0;
+        setTimeout(function(){form.style.transition = 'opacity 0.3s';form.style.opacity = 1;}, 10);
+      }
+    }
+    // 차트 데이터 예외처리 및 안내
     document.addEventListener('DOMContentLoaded', function() {
       // 1. 최근 7일간 일별 로그 수 (Line)
-      const ctx = document.getElementById('logChart').getContext('2d');
-      new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: <?= json_encode($dates) ?>,
-          datasets: [{
-            label: '일별 로그 수',
-            data: <?= json_encode($log_counts_by_date) ?>,
-            borderColor: '#3C8DBC',
-            backgroundColor: 'rgba(60,139,188,0.08)',
-            fill: true,
-            tension: 0.3
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { display: true } },
-          scales: { y: { beginAtZero: true } }
-        }
-      });
+      const logData = <?= json_encode($log_counts_by_date ?? []) ?>;
+      const logLabels = <?= json_encode($dates ?? []) ?>;
+      if (!logData || logData.length === 0 || logData.every(v=>v===0)) {
+        document.getElementById('logChart').style.display = 'none';
+        document.getElementById('logChartEmpty').style.display = 'block';
+      } else {
+        const ctx = document.getElementById('logChart').getContext('2d');
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: logLabels,
+            datasets: [{
+              label: '일별 로그 수',
+              data: logData,
+              borderColor: '#3C8DBC',
+              backgroundColor: 'rgba(60,139,188,0.08)',
+              fill: true,
+              tension: 0.3
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { display: true } },
+            scales: { y: { beginAtZero: true } }
+          }
+        });
+      }
       // 2. 유형별 로그 수 (Bar)
-      const typeChart = document.getElementById('typeChart').getContext('2d');
-      new Chart(typeChart, {
-        type: 'bar',
-        data: {
-          labels: <?= json_encode($type_labels) ?>,
-          datasets: [{
-            label: '유형별 로그 수',
-            data: <?= json_encode($type_counts) ?>,
-            backgroundColor: '#FFB300',
-            borderColor: '#FFB300',
-            borderWidth: 1
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { display: false } },
-          scales: { y: { beginAtZero: true } }
-        }
-      });
+      const typeData = <?= json_encode($type_counts ?? []) ?>;
+      const typeLabels = <?= json_encode($type_labels ?? []) ?>;
+      if (!typeData || typeData.length === 0 || typeData.every(v=>v===0)) {
+        document.getElementById('typeChart').style.display = 'none';
+        document.getElementById('typeChartEmpty').style.display = 'block';
+      } else {
+        const typeChart = document.getElementById('typeChart').getContext('2d');
+        new Chart(typeChart, {
+          type: 'bar',
+          data: {
+            labels: typeLabels,
+            datasets: [{
+              label: '유형별 로그 수',
+              data: typeData,
+              backgroundColor: '#FFB300',
+              borderColor: '#FFB300',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+          }
+        });
+      }
       // 3. 사용자별 로그 수 (Pie)
-      const userChart = document.getElementById('userChart').getContext('2d');
-      new Chart(userChart, {
-        type: 'pie',
-        data: {
-          labels: <?= json_encode($user_labels) ?>,
-          datasets: [{
-            label: '사용자별 로그 수',
-            data: <?= json_encode($user_counts) ?>,
-            backgroundColor: ['#3C8DBC','#FFB300','#4CAF50','#E91E63','#9C27B0'],
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { display: true } }
-        }
-      });
+      const userData = <?= json_encode($user_counts ?? []) ?>;
+      const userLabels = <?= json_encode($user_labels ?? []) ?>;
+      if (!userData || userData.length === 0 || userData.every(v=>v===0)) {
+        document.getElementById('userChart').style.display = 'none';
+        document.getElementById('userChartEmpty').style.display = 'block';
+      } else {
+        const userChart = document.getElementById('userChart').getContext('2d');
+        new Chart(userChart, {
+          type: 'pie',
+          data: {
+            labels: userLabels,
+            datasets: [{
+              label: '사용자별 로그 수',
+              data: userData,
+              backgroundColor: ['#3C8DBC','#FFB300','#4CAF50','#E91E63','#9C27B0'],
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { display: true } }
+          }
+        });
+      }
     });
+    // 공지사항 수정 폼 토글(기존 함수 재사용)
+    function showEditForm(id) {
+      var form = document.getElementById('notice-edit-form-' + id);
+      var view = document.getElementById('notice-view-' + id);
+      if (form && view) {
+        form.style.display = 'block';
+        view.style.display = 'none';
+      }
+    }
+    // 운영/시스템 카드 메뉴 토글 함수
+    function showOpsMenu(event) {
+      // 이미 열려있는 메뉴 닫기
+      document.querySelectorAll('.ops-menu').forEach(menu => menu.style.display = 'none');
+      // 현재 클릭한 카드의 ops-menu만 열기
+      const card = event.currentTarget;
+      const menu = card.querySelector('.ops-menu');
+      if (menu) {
+        menu.style.display = 'block';
+        // 외부 클릭 시 닫기
+        document.addEventListener('click', function handler(e) {
+          if (!card.contains(e.target)) {
+            menu.style.display = 'none';
+            document.removeEventListener('click', handler);
+          }
+        });
+      }
+      event.stopPropagation();
+    }
     </script>
-    <!-- 공지사항 관리 카드(관리자만) -->
-    <section style="margin:0 0 32px 0;">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
-        <span style="background:#005BAC;color:#fff;font-size:0.98rem;font-weight:700;padding:4px 14px;border-radius:8px;">관리자 전용</span>
-        <span style="font-size:1.18rem;font-weight:700;color:#005BAC;">공지사항 관리</span>
-      </div>
-      <?php if (isset($_SESSION['admin'])): ?>
-        <button id="showNoticeListBtn" style="background:#005BAC;color:#fff;padding:8px 22px;border:none;border-radius:8px;font-weight:600;font-size:1.02rem;margin-bottom:18px;">공지사항 목록보기</button>
-        <!-- 공지사항 목록 모달/영역 -->
-        <div id="noticeListModal" style="display:none;position:fixed;z-index:9999;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.18);justify-content:center;align-items:center;">
-          <div style="background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.12);padding:32px 28px;min-width:320px;max-width:520px;position:relative;">
-            <button onclick="document.getElementById('noticeListModal').style.display='none'" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:22px;cursor:pointer;">&times;</button>
-            <h3 style="color:#005BAC;font-size:1.15rem;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm0-4h-2V7h2v8z" fill="#005BAC"/></svg>
-              공지사항 전체 목록
-            </h3>
-            <?php if (count($all_notices) > 0): ?>
-              <ul style="padding-left:0;list-style:none;max-height:340px;overflow-y:auto;">
-                <?php foreach ($all_notices as $notice): ?>
-                  <li style="margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid #e0e0e0;">
-                    <div class="notice-view" id="notice-view-<?= $notice['id'] ?>">
-                      <div style="font-weight:700;font-size:1.08rem;color:#003366;"> <?= htmlspecialchars($notice['title']) ?> </div>
-                      <div style="font-size:0.98rem;color:#444;line-height:1.6;"> <?= nl2br(htmlspecialchars($notice['content'])) ?> </div>
-                      <div style="font-size:0.92rem;color:#888;margin-top:2px;">등록일: <?= date('Y-m-d', strtotime($notice['created_at'])) ?></div>
-                      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
-                        <button type="button" onclick="showEditForm(<?= $notice['id'] ?>)" style="background:#005BAC;color:#fff;padding:6px 16px;border:none;border-radius:8px;font-weight:600;">수정</button>
-                        <form method="post" style="display:inline;">
-                          <input type="hidden" name="delete_notice_id" value="<?= $notice['id'] ?>">
-                          <button type="submit" style="background:#E53935;color:#fff;padding:6px 16px;border:none;border-radius:8px;font-weight:600;">삭제</button>
-                        </form>
-                      </div>
-                    </div>
-                    <form method="post" id="notice-edit-form-<?= $notice['id'] ?>" style="display:none;margin:0;">
-                      <input type="hidden" name="edit_notice_id" value="<?= $notice['id'] ?>">
-                      <input type="text" name="edit_notice_title" value="<?= htmlspecialchars($notice['title']) ?>" required style="width:100%;padding:6px 8px;margin-bottom:4px;border-radius:6px;border:1.5px solid #b3c6e0;font-size:1rem;">
-                      <textarea name="edit_notice_content" required style="width:100%;padding:6px 8px;border-radius:6px;border:1.5px solid #b3c6e0;font-size:1rem;min-height:36px;"><?= htmlspecialchars($notice['content']) ?></textarea>
-                      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
-                        <button type="submit" style="background:#005BAC;color:#fff;padding:6px 16px;border:none;border-radius:8px;font-weight:600;">저장</button>
-                        <button type="button" onclick="hideEditForm(<?= $notice['id'] ?>)" style="background:#bbb;color:#fff;padding:6px 16px;border:none;border-radius:8px;font-weight:600;">취소</button>
-                      </div>
-                    </form>
-                  </li>
-                <?php endforeach; ?>
-              </ul>
-            <?php else: ?>
-              <div style="color:#888;text-align:center;">등록된 공지사항이 없습니다.</div>
-            <?php endif; ?>
-          </div>
-        </div>
-        <script>
-          document.getElementById('showNoticeListBtn').onclick = function() {
-            document.getElementById('noticeListModal').style.display = 'flex';
-          };
-          function showEditForm(id) {
-            document.getElementById('notice-view-' + id).style.display = 'none';
-            document.getElementById('notice-edit-form-' + id).style.display = 'block';
-          }
-          function hideEditForm(id) {
-            document.getElementById('notice-edit-form-' + id).style.display = 'none';
-            document.getElementById('notice-view-' + id).style.display = 'block';
-          }
-        </script>
-        <!-- 공지사항 등록 폼 -->
-        <form method="post" style="background:#e3f2fd;border-radius:12px;padding:18px 22px 14px 22px;max-width:420px;margin-bottom:32px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-          <h4 style="margin:0 0 10px 0;font-size:1.08rem;color:#005BAC;display:flex;align-items:center;gap:6px;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm0-4h-2V7h2v8z" fill="#005BAC"/></svg>
-            새 공지 등록
-          </h4>
-          <input type="text" name="notice_title" placeholder="공지 제목" required style="width:100%;padding:8px 10px;margin-bottom:8px;border-radius:6px;border:1.5px solid #b3c6e0;font-size:1rem;">
-          <textarea name="notice_content" placeholder="공지 내용" required style="width:100%;padding:8px 10px;border-radius:6px;border:1.5px solid #b3c6e0;font-size:1rem;min-height:48px;margin-bottom:8px;"></textarea>
-          <button type="submit" name="add_notice" style="background:#005BAC;color:#fff;padding:8px 22px;border:none;border-radius:8px;font-weight:600;font-size:1.02rem;">공지 등록</button>
-        </form>
-      <?php endif; ?>
-    </section>
+  </main>
+<?php endif; ?>
+    <!-- 공지사항 카드 (모든 사용자) -->
+    <?php if (count($notices) > 0): ?>
+      <section class="notice-section" style="text-align:center; margin-bottom:32px;">
+          <h2 style="font-size:2rem; font-weight:800; margin-bottom:20px; letter-spacing:0.5px;">최근 공지사항</h2>
+          <?php foreach ($notices as $notice): ?>
+              <div class="notice-card" style="display:inline-block; vertical-align:top; margin:0 16px 16px 16px; padding:32px 36px 24px 36px; border-radius:18px; background:#f8f9fa; box-shadow:0 4px 24px #e3eaf5; min-width:320px; max-width:480px; text-align:left; position:relative;">
+                  <div style="font-size:1.45rem; font-weight:900; color:#003366; margin-bottom:10px; letter-spacing:0.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                      <?=htmlspecialchars($notice['title'])?>
+                  </div>
+                  <div style="font-size:1.08rem; color:#333; line-height:1.7; max-height:3.4em; overflow:hidden; text-overflow:ellipsis; margin-bottom:18px;">
+                      <?=nl2br(htmlspecialchars($notice['content']))?>
+                  </div>
+                  <div style="font-size:0.98rem; color:#888; position:absolute; bottom:16px; left:36px;">
+                      작성자: <?=htmlspecialchars($notice['author'] ?? '관리자')?>
+                  </div>
+                  <div style="font-size:0.98rem; color:#aaa; position:absolute; bottom:16px; right:36px;">
+                      <?=htmlspecialchars($notice['created_at'])?>
+                  </div>
+              </div>
+          <?php endforeach; ?>
+      </section>
     <?php endif; ?>
-    
+
     <!-- 보안 로그 모달 -->
     <div id="securityModal" style="display:none;position:fixed;z-index:9999;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);justify-content:center;align-items:center;">
       <div style="background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);padding:0;min-width:320px;max-width:90vw;max-height:90vh;overflow:hidden;position:relative;">
@@ -534,6 +554,18 @@ if (isset($_POST['unset_maintenance'])) {
       </div>
     </div>
     
+    <!-- 운영/시스템 메뉴 모달 -->
+    <div id="opsMenuModal" style="display:none;position:fixed;z-index:9999;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.18);justify-content:center;align-items:center;">
+      <div style="background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.13);padding:0;min-width:260px;max-width:90vw;overflow:hidden;position:relative;">
+        <div style="padding:32px 36px 24px 36px;display:flex;flex-direction:column;gap:24px;align-items:center;">
+          <button onclick="location.href='admin/user_management.php';event.stopPropagation();" style="background:none;border:none;padding:16px 32px;font-size:1.25rem;color:#005BAC;font-weight:700;text-align:center;cursor:pointer;transition:background 0.15s;border-radius:10px;width:100%;">계정 관리</button>
+          <button onclick="location.href='admin/file_management.php';event.stopPropagation();" style="background:none;border:none;padding:16px 32px;font-size:1.25rem;color:#005BAC;font-weight:700;text-align:center;cursor:pointer;transition:background 0.15s;border-radius:10px;width:100%;">파일 관리</button>
+          <button onclick="location.href='admin/system_status.php';event.stopPropagation();" style="background:none;border:none;padding:16px 32px;font-size:1.25rem;color:#005BAC;font-weight:700;text-align:center;cursor:pointer;transition:background 0.15s;border-radius:10px;width:100%;">시스템 모니터링</button>
+        </div>
+        <button onclick="closeOpsMenuModal()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:2rem;color:#888;cursor:pointer;">&times;</button>
+      </div>
+    </div>
+
     <script>
     // 보안 로그 모달 관련 함수들
     function showSecurityModal() {
@@ -637,8 +669,72 @@ if (isset($_POST['unset_maintenance'])) {
         closeSecurityModal();
       }
     });
+
+    // 운영/시스템 메뉴 모달 관련 함수들
+    function showOpsMenu(event) {
+      var modal = document.getElementById('opsMenuModal');
+      modal.style.display = 'flex';
+      // 외부 클릭 시 닫기
+      modal.onclick = function(e) {
+        if (e.target === modal) closeOpsMenuModal();
+      };
+      // ESC로 닫기
+      document.addEventListener('keydown', escHandler);
+      event.stopPropagation();
+    }
+    function closeOpsMenuModal() {
+      var modal = document.getElementById('opsMenuModal');
+      modal.style.display = 'none';
+      document.removeEventListener('keydown', escHandler);
+    }
+    function escHandler(e) {
+      if (e.key === 'Escape') closeOpsMenuModal();
+    }
     </script>
   </main>
+  <?php if (isset($_SESSION['guest'])): ?>
+  <main id="main-content" class="main-content" tabindex="-1" style="padding:0;background:transparent;box-shadow:none;max-width:1100px;">
+    <h3 style="display:flex;align-items:center;gap:10px;">내 최근 활동</h3>
+    <section style="display:flex;gap:24px;flex-wrap:wrap;margin:36px 0 24px 0;justify-content:space-between;">
+      <div style="flex:1 1 0;min-width:220px;background:linear-gradient(120deg,#f8f9fa 60%,#e3f0ff 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:24px 16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="font-weight:700;font-size:1.1rem;color:#005BAC;">📝 내가 쓴 고장 제보</div>
+        <?php if (!empty($my_faults)): ?>
+          <?php foreach ($my_faults as $fault): ?>
+            <div style="font-size:0.98rem;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              <?= htmlspecialchars($fault['part']) ?> <span style="color:#888;font-size:0.92rem;">(<?= $fault['created_at'] ?>)</span>
+            </div>
+          <?php endforeach; ?>
+        <?php else: ?>
+          <div style="color:#aaa;font-size:0.97rem;">작성한 고장 제보가 없습니다.</div>
+        <?php endif; ?>
+      </div>
+      <div style="flex:1 1 0;min-width:220px;background:linear-gradient(120deg,#f8f9fa 60%,#e3f0ff 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:24px 16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="font-weight:700;font-size:1.1rem;color:#005BAC;">🔒 내가 쓴 취약점 제보</div>
+        <?php if (!empty($my_vul_reports)): ?>
+          <?php foreach ($my_vul_reports as $vul): ?>
+            <div style="font-size:0.98rem;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              <?= htmlspecialchars($vul['title']) ?> <span style="color:#888;font-size:0.92rem;">(<?= $vul['created_at'] ?>)</span>
+            </div>
+          <?php endforeach; ?>
+        <?php else: ?>
+          <div style="color:#aaa;font-size:0.97rem;">작성한 취약점 제보가 없습니다.</div>
+        <?php endif; ?>
+      </div>
+      <div style="flex:1 1 0;min-width:220px;background:linear-gradient(120deg,#f8f9fa 60%,#e3f0ff 100%);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:24px 16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="font-weight:700;font-size:1.1rem;color:#005BAC;">🔔 내 최근 알림</div>
+        <?php if (!empty($my_notifications)): ?>
+          <?php foreach ($my_notifications as $noti): ?>
+            <div style="font-size:0.98rem;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              <?= htmlspecialchars($noti['message']) ?> <span style="color:#888;font-size:0.92rem;">(<?= $noti['time'] ?? $noti['created_at'] ?>)</span>
+            </div>
+          <?php endforeach; ?>
+        <?php else: ?>
+          <div style="color:#aaa;font-size:0.97rem;">알림이 없습니다.</div>
+        <?php endif; ?>
+      </div>
+    </section>
+  </main>
+<?php endif; ?>
   <footer class="footer" role="contentinfo">
     <div>가천대학교 CPS |  <a href="#" style="color:#FFB300; text-decoration:underline;">이용약관</a> | <a href="#" style="color:#FFB300; text-decoration:underline;">개인정보처리방침</a> | 고객센터: 1234-5678</div>
     <div style="margin-top:8px;">© 2025 PLC Control</div>

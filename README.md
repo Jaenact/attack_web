@@ -1,175 +1,61 @@
 # PLC Rotator Control System
 
-PLC 로터터 제어 및 통합 관리 시스템입니다.
+## 프로젝트 개요
+PLC 기반 설비의 통합 제어 및 관리 시스템입니다. 관리자/게스트 권한 분리, 실시간 제어, 고장/보안/운영 로그, 유지보수 모드, 보안(공격 탐지) 등 현장 실무에 필요한 기능을 제공합니다.
 
-## Quick Start
+## 주요 기능
+- 실시간 PLC 제어(ON/OFF, RPM 설정)
+- 고장/취약점 제보 및 관리(파일 첨부 포함)
+- 공지/알림/점검 등 대시보드 통합 관리
+- 관리자/게스트 권한 분리 및 계정 관리
+- 활동/보안 로그 기록 및 통계
+- 유지보수(점검) 모드, 실시간 알림
+- PHPIDS 기반 공격 탐지 및 보안 강화
 
-```bash
-# 1. 저장소 클론
-git clone https://github.com/rotator-system/plc-control.git
-cd rotator-system
+## 설치 및 실행
+1. 저장소 클론
+   ```bash
+   git clone https://github.com/rotator-system/plc-control.git
+   cd rotator-system
+   ```
+2. 의존성 설치
+   ```bash
+   composer install
+   npm install
+   ```
+3. DB 및 관리자 계정 생성
+   ```bash
+   composer run setup
+   ```
+4. 권한 설정
+   ```bash
+   sudo chown -R www-data:www-data uploads/
+   sudo chmod 755 uploads/
+   ```
+5. 웹서버 접속
+   - http://your-server/rotator-system/
 
-# 2. 의존성 설치
-composer install
-npm install
-
-# 3. DB 설정 및 관리자 계정 생성
-composer run setup
-
-# 4. 권한 설정
-sudo chown -R www-data:www-data uploads/
-sudo chmod 755 uploads/
-
-# 5. 접속
-# 브라우저에서 http://your-server/rotator-system/ 접속
-```
-
-## Requirements
-
-- **PHP**: 7.4+ (8.1+ 권장)
-- **MySQL**: 5.7+ (8.0+ 권장)  
-- **Web Server**: Apache 2.4+ 또는 Nginx 1.18+
-- **Node.js**: 16.0+ (프론트엔드 빌드용)
-
-## Default Admin Account
-
-- **Username**: `admin`
-- **Password**: `ateam4567!`
-
-> **Important**: Change the default password after your first login.
-
-## Project Structure
-
+## 폴더 구조
 ```
 rotator-system/
-├── public/          # 웹 페이지 (메인, 제어, 고장, 로그 등)
-├── src/             # 핵심 로직 (DB, 인증, 로그, 사용자 관리)
-├── assets/          # 정적 리소스 (CSS, JS, 이미지)
-├── uploads/         # 업로드 파일 저장소
-├── sql/             # DB 스키마 및 초기화 스크립트
-├── docs/            # 문서 (변경이력, 의존성, 유지보수)
-└── PHPIDS/          # 보안 라이브러리
+├── public/        # 서비스 페이지(메인, 제어, 고장, 로그 등)
+├── src/           # 핵심 로직(DB, 인증, 로그, 사용자 관리)
+├── assets/        # 정적 리소스(CSS, JS, 이미지)
+├── uploads/       # 첨부파일 저장소
+├── sql/           # DB 스키마/초기화
+├── docs/          # 상세 문서(운영, 변경이력 등)
+├── PHPIDS/        # 보안 라이브러리
 ```
 
-## Features
+## 운영/유지보수
+- 점검/백업/복구/모니터링 등 실무 운영 가이드는 `docs/MAINTENANCE.md` 참고
+- 의존성/환경 정보는 `docs/DEPENDENCIES.md` 참고
+- 변경이력 및 버전 정보는 `docs/CHANGELOG.md`, `docs/VERSION.md` 참고
 
-- **PLC Control**: Real-time ON/OFF, RPM setting (admin only)
-- **Fault Management**: Register/edit/delete faults with file attachments
-- **Activity Log**: All major events logging with IP masking
-- **User Management**: Admin/guest role separation
-- **Maintenance Mode**: Real-time ON/OFF with admin exception access
-- **Security**: PHPIDS attack detection, session authentication
+## 문서/지원
+- 상세 문서: `docs/` 폴더 및 각 md 파일 참고
+- 문의: dev@rotator-system.com
+- 이슈: GitHub Issues 활용
 
-## Development Commands
-
-### PHP (Composer)
-```bash
-composer test              # 테스트 실행
-composer security:check    # 보안 검사
-composer setup             # DB 및 관리자 설정
-composer backup            # DB 백업
-```
-
-### Frontend (npm)
-```bash
-npm run build             # 프로덕션 빌드
-npm run dev               # 개발 모드
-npm run test              # 테스트 실행
-npm run lint              # 코드 검사
-```
-
-## Database Schema
-
-| Table | Purpose | Key Features |
-|-------|---------|--------------|
-| `admins` | Admin accounts | Role-based access, password hashing |
-| `guests` | Guest accounts | Limited permissions, activity tracking |
-| `faults` | Fault management | File attachments, status tracking |
-| `logs` | Activity logging | IP masking, detailed event tracking |
-| `maintenance` | Maintenance mode | Real-time control, admin exceptions |
-
-## Security Features
-
-- **Password Hashing**: bcrypt encryption (no plain text storage)
-- **Session Management**: Complete session destruction on logout
-- **Attack Detection**: PHPIDS integrated threat detection
-- **File Upload Security**: Type and size restrictions
-- **Role-Based Access**: Strict admin/guest permissions
-- **SQL Injection Prevention**: Prepared statements only
-- **IP Privacy**: Masked IP addresses in logs
-
-## Documentation
-
-- **[docs/CHANGELOG.md](docs/CHANGELOG.md)** - 모든 변경 이력
-- **[docs/VERSION.md](docs/VERSION.md)** - 현재 버전 정보
-- **[docs/DEPENDENCIES.md](docs/DEPENDENCIES.md)** - 의존성 상세 정보
-- **[docs/MAINTENANCE.md](docs/MAINTENANCE.md)** - 유지보수 가이드
-- **[PROJECT_DETAIL.md](PROJECT_DETAIL.md)** - 프로젝트 상세 설명
-
-## Deployment
-
-### Pre-deployment Checklist
-- [ ] All tests passing
-- [ ] Security audit completed
-- [ ] Database backup created
-- [ ] Environment variables configured
-- [ ] File permissions set correctly
-- [ ] SSL certificate installed
-- [ ] Monitoring configured
-
-### Deployment Commands
-```bash
-# 프로덕션 빌드
-npm run build
-composer install --no-dev --optimize-autoloader
-
-# 서비스 재시작
-sudo systemctl restart apache2
-sudo systemctl restart mysql
-
-# 헬스 체크
-curl -I http://your-server/rotator-system/
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**Web Server Connection Error**
-```bash
-sudo systemctl restart apache2
-sudo systemctl status apache2
-```
-
-**Database Connection Error**
-```bash
-sudo systemctl restart mysql
-mysql -u username -p -h localhost
-```
-
-**File Upload Error**
-```bash
-sudo chown -R www-data:www-data uploads/
-sudo chmod 755 uploads/
-df -h  # 디스크 공간 확인
-```
-
-**Session Error**
-```bash
-sudo chown -R www-data:www-data /tmp/
-sudo chmod 755 /tmp/
-```
-
-## Support
-
-- **Email**: dev@rotator-system.com
-- **Documentation**: See [docs/MAINTENANCE.md](docs/MAINTENANCE.md)
-- **Issues**: Report bugs via GitHub Issues
-
-## License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
----
-
-**Automation** | **Reliability** | **Security** | **Clean Code** 
+## 라이선스
+MIT License (LICENSE 파일 참조) 
