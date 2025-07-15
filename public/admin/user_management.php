@@ -24,6 +24,19 @@ $stmt = $pdo->prepare("SELECT * FROM users $where_sql ORDER BY created_at DESC")
 $stmt->execute($params);
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 // 역할 변경, 잠금/해제, 비번 초기화 처리
+// 계정 삭제 처리
+if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['delete_user'], $_POST['username'])) {
+    $u = $_POST['username'];
+    if ($u !== 'admin') {
+        $pdo->prepare("DELETE FROM users WHERE username=?")->execute([$u]);
+        writeLog($pdo, $_SESSION['admin'], '계정삭제', '성공', $u);
+        echo "<script>alert('계정이 완전히 삭제되었습니다. 복구할 수 없습니다.');location.href='user_management.php';</script>";
+        exit();
+    } else {
+        echo "<script>alert('관리자 계정은 삭제할 수 없습니다.');location.href='user_management.php';</script>";
+        exit();
+    }
+}
 if ($_SERVER['REQUEST_METHOD']==='POST') {
     if (isset($_POST['change_role'], $_POST['username'], $_POST['role'])) {
         $u = $_POST['username']; $r = $_POST['role'];
@@ -49,6 +62,14 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
         echo "<script>alert('새 비밀번호: $newpw');location.href='user_management.php';</script>";
         exit();
     }
+    if (isset($_POST['set_pw'], $_POST['username'], $_POST['newpw'])) {
+        $u = $_POST['username'];
+        $newpw = $_POST['newpw'];
+        $pdo->prepare("UPDATE users SET password=? WHERE username=?")->execute([password_hash($newpw,PASSWORD_DEFAULT),$u]);
+        writeLog($pdo, $_SESSION['admin'], '비밀번호초기화', '성공', "$u");
+        echo "<script>alert('비밀번호가 변경되었습니다.');location.href='user_management.php';</script>";
+        exit();
+    }
     header('Location: user_management.php'); exit();
 }
 ?>
@@ -58,14 +79,24 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
   <meta charset="UTF-8">
   <title>사용자 관리</title>
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <link rel="stylesheet" href="style.css">
   <style>
-    .user-table{width:100%;border-collapse:collapse;margin-top:24px;}
-    .user-table th,.user-table td{border:1px solid #e1e5e9;padding:8px 10px;text-align:center;}
-    .user-table th{background:#f5f7fa;}
-    .user-table td[aria-disabled="true"]{color:#aaa;background:#f9f9f9;}
-    .user-actions button{margin:0 2px;}
-    @media(max-width:700px){.user-table{font-size:0.95rem;}}
+    body { background: #f5f7fa; color: #222; font-family: 'Noto Sans KR', sans-serif; }
+    main { max-width:900px; margin:40px auto 0 auto; background:#fff; border-radius:16px; box-shadow:0 4px 24px rgba(0,91,172,0.10); padding:40px 32px; }
+    h2 { font-size:2rem; font-weight:700; color:#005BAC; margin-bottom:18px; }
+    .user-table{width:100%;border-collapse:collapse;margin-top:24px; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 2px 16px rgba(0,0,0,0.06);}
+    .user-table th,.user-table td{border:1px solid #e1e5e9;padding:12px 10px;text-align:center;}
+    .user-table th{background:#e3f0ff;color:#005BAC;font-weight:700;}
+    .user-table tr{border-bottom:1px solid #e1e5e9;}
+    .user-table tr:hover{background:#f0f8ff;}
+    .user-actions button, .user-actions form { display:inline-block; margin:0 2px; }
+    .btn-setpw { background:#e3f0ff; color:#005BAC; border:1px solid #7ecbff; border-radius:6px; padding:4px 12px; font-weight:500; cursor:pointer; }
+    .btn-setpw:hover { background:#005BAC; color:#fff; }
+    .btn-delete { background:#fff; color:#ff5c5c; border:1px solid #ff5c5c; border-radius:6px; padding:4px 12px; font-weight:500; cursor:pointer; }
+    .btn-delete:hover { background:#ff5c5c; color:#fff; }
+    .role-select { padding: 6px 16px; border: 1.5px solid #005BAC; border-radius: 8px; background: #e3f0ff; color: #005BAC; font-weight: 600; font-size: 1rem; transition: border 0.2s, box-shadow 0.2s; box-shadow: 0 1px 4px rgba(0,91,172,0.07); outline: none; margin: 0 2px; }
+    .role-select:focus, .role-select:hover { border: 2px solid #0076d7; background: #e3f0ff; }
+    input[type='text'], input[type='password'] { background:#fff; color:#005BAC; border:1px solid #7ecbff; border-radius:6px; padding:6px 10px; }
+    .pw-form { display:inline-block; }
   </style>
 </head>
 <body style="background:linear-gradient(135deg,rgba(0,91,172,0.08) 0%,rgba(0,91,172,0.13) 100%);min-height:100vh;">
@@ -109,10 +140,17 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
           <td><?=htmlspecialchars($u['phone'])?></td>
           <td><?=date('Y-m-d',strtotime($u['created_at']))?></td>
           <td class="user-actions">
+            <form method="post" class="pw-form" style="margin-bottom:4px;">
+              <input type="hidden" name="username" value="<?=htmlspecialchars($u['username'])?>">
+              <input type="password" name="newpw" placeholder="새 비번" required style="width:90px;">
+              <button type="submit" name="set_pw" class="btn-setpw">비번초기화</button>
+            </form>
+            <?php if($u['username']!=='admin'): ?>
             <form method="post" style="display:inline-block;">
               <input type="hidden" name="username" value="<?=htmlspecialchars($u['username'])?>">
-              <button type="submit" name="reset_pw" style="padding:2px 10px;background:#005BAC;color:#fff;border:none;border-radius:6px;cursor:pointer;">비번초기화</button>
+              <button type="submit" name="delete_user" class="btn-delete" onclick="return confirm('정말로 이 계정을 완전히 삭제하시겠습니까? 삭제 후 복구할 수 없습니다.')">삭제</button>
             </form>
+            <?php endif; ?>
           </td>
         </tr>
         <?php endforeach; ?>

@@ -143,7 +143,6 @@ foreach ($status_counts as $row) {
     <meta charset="UTF-8">
     <title>통합 보안 관리</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="../style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { background: #f7f9fb; }

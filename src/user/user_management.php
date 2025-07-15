@@ -33,15 +33,13 @@ function maskIP($ip) {
     return $ip;
 }
 
-// 계정 삭제 처리 (비활성화로 변경)
+// 계정 삭제 처리 (DB에서 완전 삭제)
 if (isset($_GET['delete_user'])) {
     $user_id = $_GET['delete_user'];
-    
-    $stmt = $pdo->prepare("UPDATE users SET is_active = 0 WHERE id = :id");
+    $stmt = $pdo->prepare("DELETE FROM users WHERE id = :id");
     $stmt->execute(['id' => $user_id]);
-    
-    writeLog($pdo, $_SESSION['admin'], "계정 비활성화 - ID: $user_id");
-    echo "<script>alert('계정이 비활성화되었습니다.'); location.href='user_management.php';</script>";
+    writeLog($pdo, $_SESSION['admin'], "계정 삭제 - ID: $user_id");
+    echo "<script>alert('계정이 완전히 삭제되었습니다. 복구할 수 없습니다.'); location.href='user_management.php';</script>";
     exit();
 }
 
@@ -133,154 +131,94 @@ $inactive_count = $pdo->query("SELECT COUNT(*) FROM users WHERE is_active = 0")-
 <head>
     <meta charset="UTF-8">
     <title>사용자 관리</title>
-    <link rel="stylesheet" href="style.css">
     <style>
+        body {
+            background: #181c24;
+            color: #eaf6ff;
+            font-family: 'Noto Sans KR', sans-serif;
+        }
         .main {
             margin-left: 200px;
-            padding: 20px;
+            padding: 32px 0 0 0;
+            max-width: 900px;
+            margin-right: auto;
+            margin-left: auto;
         }
         .user-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
-        .user-stats {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
+        .user-header h2 {
+            color: #7ecbff;
+            font-size: 2rem;
+            font-weight: 700;
         }
-        .stat-card {
-            background: white;
-            padding: 15px;
+        .btn {
+            padding: 6px 16px;
+            border: none;
             border-radius: 6px;
-            text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
         }
-        .stat-number {
-            font-size: 24px;
-            font-weight: bold;
-            color: #007bff;
-        }
+        .btn-add { background: #222c36; color: #7ecbff; border: 1px solid #7ecbff; }
+        .btn-add:hover { background: #7ecbff; color: #181c24; }
+        .btn-delete { background: #222c36; color: #ff5c5c; border: 1px solid #ff5c5c; }
+        .btn-delete:hover { background: #ff5c5c; color: #fff; }
+        .btn-reset { background: #222c36; color: #7ecbff; border: 1px solid #7ecbff; }
+        .btn-reset:hover { background: #7ecbff; color: #181c24; }
+        .btn-profile { background: #222c36; color: #eaf6ff; border: 1px solid #eaf6ff; }
+        .btn-profile:hover { background: #eaf6ff; color: #181c24; }
         .user-table {
             width: 100%;
             border-collapse: collapse;
-            background-color: white;
-            box-shadow: 0 0 10px rgba(0,0,0,0.05);
-            border-radius: 8px;
+            background: #232a36;
+            border-radius: 10px;
             overflow: hidden;
-            margin-bottom: 20px;
+            margin-bottom: 32px;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.12);
         }
         .user-table th, .user-table td {
-            padding: 12px;
+            padding: 14px 10px;
             text-align: left;
-            border-bottom: 1px solid #eee;
         }
         .user-table th {
-            background-color: #f8f9fa;
-            font-weight: 600;
-            color: #495057;
+            background: #1a2028;
+            color: #7ecbff;
+            font-weight: 700;
+            border-bottom: 2px solid #222c36;
+        }
+        .user-table tr {
+            border-bottom: 1px solid #232a36;
         }
         .user-table tr:hover {
-            background-color: #f8f9fa;
+            background: #202736;
         }
         .user-badge {
             display: inline-block;
-            padding: 4px 8px;
+            padding: 3px 10px;
             border-radius: 12px;
             font-size: 12px;
-            font-weight: bold;
+            font-weight: 600;
         }
-        .user-admin { background-color: #dc3545; color: white; }
-        .user-guest { background-color: #6c757d; color: white; }
-        .user-inactive { background-color: #ffc107; color: black; }
-        .user-active { background-color: #28a745; color: white; }
-        .action-buttons {
-            display: flex;
-            gap: 5px;
-        }
-        .btn {
-            padding: 4px 8px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .btn-danger { background-color: #dc3545; color: white; }
-        .btn-success { background-color: #28a745; color: white; }
-        .btn-warning { background-color: #ffc107; color: black; }
-        .btn-info { background-color: #17a2b8; color: white; }
-        .pagination {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        .pagination a {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            text-decoration: none;
-            color: #007bff;
-            border-radius: 4px;
-        }
-        .pagination a:hover {
-            background-color: #007bff;
-            color: white;
-        }
-        .pagination .current {
-            background-color: #007bff;
-            color: white;
-            border-color: #007bff;
-        }
-        .password-hash {
-            font-family: monospace;
-            font-size: 11px;
-            color: #666;
-            max-width: 200px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .activity-info {
-            font-size: 12px;
-            color: #666;
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-        }
-        .modal-content {
-            background-color: white;
-            margin: 15% auto;
-            padding: 20px;
-            border-radius: 8px;
-            width: 400px;
-        }
-        .modal input {
-            width: 100%;
-            padding: 8px;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        .modal-buttons {
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-            margin-top: 20px;
-        }
+        .user-admin { background: #7ecbff; color: #181c24; }
+        .user-guest { background: #232a36; color: #7ecbff; border: 1px solid #7ecbff; }
+        .user-active { background: #232a36; color: #7ecbff; border: 1px solid #7ecbff; }
+        .user-inactive { background: #232a36; color: #ffb347; border: 1px solid #ffb347; }
+        .action-buttons { display: flex; gap: 8px; }
+        .password-hash { font-family: monospace; font-size: 11px; color: #7ecbff; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .activity-info { font-size: 12px; color: #7ecbff; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(24,28,36,0.85); }
+        .modal-content { background-color: #232a36; margin: 12% auto; padding: 28px; border-radius: 12px; width: 350px; color: #eaf6ff; }
+        .modal input { width: 100%; padding: 10px; margin: 12px 0; border: 1px solid #7ecbff; border-radius: 6px; background: #181c24; color: #eaf6ff; }
+        .modal label { color: #7ecbff; font-weight: 500; }
+        .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .pagination { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
+        .pagination a { padding: 8px 12px; border: 1px solid #7ecbff; text-decoration: none; color: #7ecbff; border-radius: 4px; }
+        .pagination a:hover, .pagination .current { background-color: #7ecbff; color: #181c24; border-color: #7ecbff; }
     </style>
 </head>
 <body>
@@ -289,7 +227,7 @@ $inactive_count = $pdo->query("SELECT COUNT(*) FROM users WHERE is_active = 0")-
     <div class="main">
         <div class="user-header">
             <h2>👥 사용자 관리</h2>
-            <a href="../../public/register_user.php" class="btn btn-success" style="text-decoration: none; padding: 8px 16px;">➕ 새 사용자 등록</a>
+            <a href="../../public/register_user.php" class="btn btn-add" style="text-decoration: none; padding: 8px 16px;">➕ 새 사용자 등록</a>
         </div>
         
         <div class="user-stats">
@@ -372,14 +310,9 @@ $inactive_count = $pdo->query("SELECT COUNT(*) FROM users WHERE is_active = 0")-
                             </td>
                             <td>
                                 <div class="action-buttons">
-                                    <?php if ($user['is_active']): ?>
-                                        <a href="?delete_user=<?= $user['id'] ?>" class="btn btn-danger" 
-                                           onclick="return confirm('정말로 이 계정을 비활성화하시겠습니까?')">비활성화</a>
-                                    <?php else: ?>
-                                        <a href="?activate_user=<?= $user['id'] ?>" class="btn btn-success">활성화</a>
-                                <?php endif; ?>
-                                    <button class="btn btn-warning" onclick="showPasswordModal(<?= $user['id'] ?>)">비밀번호 재설정</button>
-                                    <button class="btn btn-info" onclick="showProfileModal(<?= $user['id'] ?>)">프로필</button>
+                                    <a href="?delete_user=<?= $user['id'] ?>" class="btn btn-delete" onclick="return confirm('정말로 이 계정을 완전히 삭제하시겠습니까? 삭제 후 복구할 수 없습니다.')">삭제</a>
+                                    <button class="btn btn-reset" onclick="showPasswordModal(<?= $user['id'] ?>)">비밀번호 초기화</button>
+                                    <button class="btn btn-profile" onclick="showProfileModal(<?= $user['id'] ?>)">프로필</button>
                                 </div>
                             </td>
                         </tr>
@@ -402,10 +335,10 @@ $inactive_count = $pdo->query("SELECT COUNT(*) FROM users WHERE is_active = 0")-
         <?php endif; ?>
     </div>
 
-    <!-- 비밀번호 재설정 모달 -->
+    <!-- 비밀번호 초기화 모달 -->
     <div id="passwordModal" class="modal">
         <div class="modal-content">
-            <h3>비밀번호 재설정</h3>
+            <h3>비밀번호 초기화</h3>
             <form method="POST">
                 <input type="hidden" name="user_id" id="passwordUserId">
                 <input type="hidden" name="reset_password" value="1">
@@ -415,7 +348,7 @@ $inactive_count = $pdo->query("SELECT COUNT(*) FROM users WHERE is_active = 0")-
                 <input type="password" name="confirm_password" required>
                 <div class="modal-buttons">
                     <button type="button" onclick="closePasswordModal()">취소</button>
-                    <button type="submit">재설정</button>
+                    <button type="submit">초기화</button>
                 </div>
             </form>
         </div>

@@ -63,7 +63,6 @@ $popups = $pdo->query("SELECT * FROM popups ORDER BY start_at DESC")->fetchAll()
   <meta charset="UTF-8">
   <title>공지/배너/팝업 관리</title>
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <link rel="stylesheet" href="style.css">
   <style>
     .mg-table{width:100%;border-collapse:collapse;margin-top:24px;}
     .mg-table th,.mg-table td{border:1px solid #e1e5e9;padding:8px 10px;text-align:center;}

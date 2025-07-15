@@ -15,6 +15,23 @@ $active = 'faults';
 require_once '../src/db/db.php';          
 require_once '../src/log/log_function.php';
 
+if (isset($_GET['download'])) {
+    $file = $_GET['download'];
+    if (file_exists($file)) {
+        error_log("CWD: " . getcwd());
+        error_log("Requested: " . $file);
+        error_log("Resolved: " . realpath($file));
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="' . basename($file) . '"');
+        readfile($file);
+        exit;
+    } else {
+        http_response_code(404);
+        echo "File not found: " . htmlspecialchars($file);
+        exit;
+    }
+}
+
 // PHPIDS 라이브러리 로딩
 require_once __DIR__ . '/../PHPIDS/lib/IDS/Init.php';
 require_once __DIR__ . '/../PHPIDS/lib/IDS/Monitor.php';
@@ -608,8 +625,8 @@ $faults = $stmt->fetchAll(PDO::FETCH_ASSOC);
           <?php if ($edit_fault['filename'] && fileExists($edit_fault['filename'])): ?>
             <div class="file-info">
               📎 현재 첨부파일: 
-              <a href="uploads/<?= urlencode($edit_fault['filename']) ?>" target="_blank" class="file-link">
-                <?= htmlspecialchars($edit_fault['original_filename'] ?? $edit_fault['filename']) ?>
+              <a href="faults.php?download=<?= urlencode('../uploads/' . $fault['filename']) ?>" target="_blank" class="file-link">
+                <?= htmlspecialchars($fault['original_filename'] ?? $fault['filename']) ?>
               </a>
             </div>
           <?php endif; ?>

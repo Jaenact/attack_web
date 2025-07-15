@@ -63,7 +63,6 @@ function isDangerFile($filename) {
   <meta charset="UTF-8">
   <title>파일 업로드/다운로드 관리</title>
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <link rel="stylesheet" href="style.css">
   <style>
     .file-table{width:100%;border-collapse:collapse;margin-top:24px;}
     .file-table th,.file-table td{border:1px solid #e1e5e9;padding:8px 10px;text-align:center;}

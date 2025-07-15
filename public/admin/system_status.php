@@ -8,7 +8,6 @@ if (!isset($_SESSION['admin'])) { echo "<script>alert('관리자만 접근 가�
   <meta charset="UTF-8">
   <title>시스템 리소스 상태 모니터링</title>
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
   <style>
