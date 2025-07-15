@@ -25,6 +25,7 @@ if (session_status() === PHP_SESSION_NONE) session_start();
         <?php if (isset($_SESSION['admin'])): ?>
         <li><a href="/public/logs.php"<?= ($active ?? '')==='logs' ? ' aria-current="page"' : '' ?>><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 6v18h18V6H3zm16 16H5V8h14v14zm-7-2h2v-2h-2v2zm0-4h2v-4h-2v4z" fill="#fff"/></svg>로그</a></li>
         <?php endif; ?>
+        <li><a href="/public/vulnerability_report.php"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 17h-2v-2h2v2zm0-4h-2V7h2v8z" fill="#fff"/></svg>취약점 제보</a></li>
         <li><a href="/public/logout.php"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M16 13v-2H7V8l-5 4 5 4v-3h9zm3-10H5c-1.1 0-2 .9-2 2v6h2V5h14v14H5v-6H3v6c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z" fill="#fff"/></svg>로그아웃</a></li>
         <li><button id="profileBtn" class="profile-btn nav-profile" style="background:none;border:none;color:#fff;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 12c2.7 0 8 1.34 8 4v2H4v-2c0-2.66 5.3-4 8-4zm0-2a4 4 0 100-8 4 4 0 000 8z" fill="#fff"/></svg>

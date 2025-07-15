@@ -1,5 +1,29 @@
 # 변경 이력
 
+## [1.1.4] - 2025-07-16
+
+### 보안/취약점 및 기능 개선
+- [보안] 취약점 관리(취약점 상태 변경/일괄처리) 등 주요 POST 요청에 CSRF 방어 필요성 점검 및 안내 (public/admin/vulnerability_management.php)
+- [보안] 모든 출력에 htmlspecialchars 적용, XSS 방어 강화 (public/faults.php, public/admin/vulnerability_management.php 등)
+- [보안] 세션/권한 체크 강화, 세션 하이재킹 방지 로직 점검 (public/index.php, public/control.php 등)
+- [보안] 입력값 타입/길이/허용값 서버 검증 강화 (public/faults.php, public/admin/vulnerability_management.php 등)
+- [보안] 예외 처리 및 에러 메시지 노출 최소화, 상세 에러는 로그로만 기록 (src/db/db.php 등)
+- [보안] X-Frame-Options 등 보안 헤더 적용 권고
+
+### UI/UX 및 레이아웃 개선
+- [개선] 고장 게시판, 취약점 관리, 대시보드 등 주요 화면의 레이아웃/스타일/반응형 구조 개선 (public/faults.php, public/admin/vulnerability_management.php, public/index.php)
+- [개선] 공통 레이아웃(templates/layout.php) 구조 통합 및 네비게이션/프로필/푸터 등 UI 일원화
+- [개선] Chart.js 차트, 캐러셀, 통계 카드 등 대시보드 시각화/UX 강화 (public/index.php)
+- [개선] 버튼, 입력폼, 테이블 등 주요 UI 요소 크기/정렬/명칭/컬러 개선
+
+### DB/코드 구조 및 파일 정리
+- [통합] DB 설정/함수 통합, 불필요/중복/테스트 파일 정리 및 src/db/maintenance_check.php, src/db/log_function.php 등 삭제
+- [정비] 공통 함수/레이아웃/스타일 적용, 코드 일관성 강화
+
+### 기타
+- [정비] CHANGELOG.md 등 문서 최신화 및 실무 기준 반영
+- [정리] create_new_log.php, test_password.php, test_phpids.php, test_security_log.php 등 테스트/임시 파일 삭제
+
 ## [1.1.3] - 2025-07-15
 
 ### 보안/취약점 및 기능 수정 내역
@@ -7,7 +31,6 @@
 - [취약점] 고장게시판 담당자(manager) 필드에 XSS(스크립트 삽입) 가능. 담당자 입력값에 <script>, <img onerror=...> 등 악성 코드 삽입 시, 고장 목록 조회 시 관리자/사용자 브라우저에서 스크립트 실행되어 세션 탈취, 권한 상승 등 2차 피해 발생 가능. (public/faults.php)
 - [수정] 담당자(manager) 필드 출력 시 htmlspecialchars() 적용하여 XSS 방어. (public/faults.php)
 - [수정] 파일 업로드 시 허용 확장자/실제 MIME 타입 검사 강화, 멀티 확장자/우회 방지 로직 추가. (public/faults.php)
-
 
 ## [1.1.2] - 2025-07-14
 

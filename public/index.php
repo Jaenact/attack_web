@@ -184,6 +184,48 @@ if (isset($_POST['unset_maintenance'])) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="assets/css/main.css">
   <link href="https://fonts.googleapis.com/css?family=Noto+Sans+KR:400,700&display=swap" rel="stylesheet">
+  <style>
+    /* 차트 캐러셀 스타일 (자연스러운 전환) */
+    .chart-carousel {
+      position: relative;
+      min-height: 320px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      margin: 0 auto 32px auto;
+      max-width: 900px;
+    }
+    .chart-slide {
+      position: absolute;
+      left: 0; right: 0; top: 0; bottom: 0;
+      width: 100%;
+      max-width: 800px;
+      min-width: 320px;
+      background: #f8f9fa;
+      padding: 28px 18px 18px 18px;
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      opacity: 0;
+      transform: translateX(40px);
+      pointer-events: none;
+      transition: opacity 0.4s, transform 0.4s;
+      z-index: 0;
+    }
+    .chart-slide.active {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+      z-index: 1;
+    }
+    .chart-carousel button {
+      display: none;
+    }
+    @media (max-width: 900px) {
+      .chart-carousel { max-width: 100vw; }
+      .chart-slide { max-width: 98vw; min-width: 0; padding: 12px 2vw; }
+    }
+  </style>
 </head>
 <body>
 <?php if (isset(
@@ -204,6 +246,7 @@ if (isset($_POST['unset_maintenance'])) {
       <?php if (isset($_SESSION['admin'])): ?>
       <li><a href="logs.php">로그</a></li>
       <?php endif; ?>
+      <li><a href="vulnerability_report.php">취약점 제보</a></li>
       <li><a href="logout.php">로그아웃</a></li>
     </ul>
   </nav>
@@ -289,17 +332,17 @@ if (isset($_POST['unset_maintenance'])) {
   </div>
   <!-- 차트/통계(슬라이드/탭 등으로 정돈, 필요시) -->
   <section style="margin:0 0 32px 0;">
-    <div style="display:flex;flex-wrap:wrap;gap:40px;justify-content:center;align-items:flex-start;">
-      <div style="flex:1 1 340px;min-width:280px;max-width:480px;background:#f8f9fa;padding:28px 18px 18px 18px;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);">
-        <canvas id="logChart" height="110"></canvas>
+    <div class="chart-carousel">
+      <div class="chart-slide active">
+        <canvas id="logChart" height="200"></canvas>
         <div id="logChartEmpty" style="display:none;text-align:center;color:#aaa;padding:24px 0;">일별 로그 데이터가 없습니다.</div>
       </div>
-      <div style="flex:1 1 260px;min-width:200px;max-width:340px;background:#f8f9fa;padding:28px 18px 18px 18px;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);">
-        <canvas id="typeChart" height="110"></canvas>
+      <div class="chart-slide">
+        <canvas id="typeChart" height="200"></canvas>
         <div id="typeChartEmpty" style="display:none;text-align:center;color:#aaa;padding:24px 0;">유형별 로그 데이터가 없습니다.</div>
       </div>
-      <div style="flex:1 1 260px;min-width:200px;max-width:340px;background:#f8f9fa;padding:28px 18px 18px 18px;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.07);">
-        <canvas id="userChart" height="110"></canvas>
+      <div class="chart-slide">
+        <canvas id="userChart" height="200"></canvas>
         <div id="userChartEmpty" style="display:none;text-align:center;color:#aaa;padding:24px 0;">사용자별 로그 데이터가 없습니다.</div>
       </div>
     </div>
@@ -341,6 +384,77 @@ if (isset($_POST['unset_maintenance'])) {
     </div>
   </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// 차트 캐러셀 동작 (그래프 클릭 시 다음 슬라이드, 자연스러운 전환)
+const chartSlides = document.querySelectorAll('.chart-slide');
+let chartIdx = 0;
+function showChart(idx) {
+  chartSlides.forEach((el, i) => el.classList.toggle('active', i === idx));
+}
+chartSlides.forEach(slide => {
+  slide.onclick = () => {
+    chartIdx = (chartIdx + 1) % chartSlides.length;
+    showChart(chartIdx);
+  };
+});
+showChart(chartIdx);
+// PHP 데이터를 JS로 전달
+const logLabels = <?= json_encode($dates ?? []) ?>;
+const logData = <?= json_encode($log_counts_by_date ?? []) ?>;
+const typeLabels = <?= json_encode($type_labels ?? []) ?>;
+const typeData = <?= json_encode($type_counts ?? []) ?>;
+const userLabels = <?= json_encode($user_labels ?? []) ?>;
+const userData = <?= json_encode($user_counts ?? []) ?>;
+// 일별 로그 차트
+if (document.getElementById('logChart')) {
+  new Chart(document.getElementById('logChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: logLabels,
+      datasets: [{
+        label: '일별 로그',
+        data: logData,
+        borderColor: '#005BAC',
+        backgroundColor: 'rgba(0,91,172,0.08)',
+        fill: true,
+        tension: 0.4
+      }]
+    },
+    options: { responsive: true }
+  });
+}
+// 유형별 로그 차트
+if (document.getElementById('typeChart')) {
+  new Chart(document.getElementById('typeChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: typeLabels,
+      datasets: [{
+        label: '유형별 로그',
+        data: typeData,
+        backgroundColor: '#43e97b'
+      }]
+    },
+    options: { responsive: true }
+  });
+}
+// 사용자별 로그 차트
+if (document.getElementById('userChart')) {
+  new Chart(document.getElementById('userChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: userLabels,
+      datasets: [{
+        label: '사용자별 로그',
+        data: userData,
+        backgroundColor: '#3366cc'
+      }]
+    },
+    options: { responsive: true }
+  });
+}
+</script>
 <script>
 // 공지사항 관리 모달 열기/닫기
 const noticeBtn = document.getElementById('noticeManageBtn');

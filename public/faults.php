@@ -298,317 +298,180 @@ $faults = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // [고장 게시판 상단에 검색/필터/정렬 폼 추가]
 ?>
-<!-- 고장 게시판 메인 레이아웃 -->
-<style>
-  html, body { height: 100%; }
-  body { background: #F5F7FA; color: #222; font-family: 'Noto Sans KR', 'Nanum Gothic', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
-  .skip-link { position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden; z-index: 100; }
-  .skip-link:focus { left: 16px; top: 16px; width: auto; height: auto; background: #005BAC; color: #fff; padding: 8px 16px; border-radius: 6px; }
-  .header { display: flex; align-items: center; justify-content: space-between; background: #005BAC; color: #fff; padding: 0 32px; height: 64px; }
-  .logo { display: flex; align-items: center; font-weight: bold; font-size: 1.3rem; letter-spacing: 1px; text-decoration: none; color: #fff; }
-  .logo svg { margin-right: 8px; }
-  .main-nav ul { display: flex; gap: 32px; list-style: none; }
-  .main-nav a { color: #fff; text-decoration: none; font-weight: 500; padding: 8px 0; border-bottom: 2px solid transparent; transition: border 0.2s; display: flex; align-items: center; gap: 6px; }
-  .main-nav a[aria-current="page"], .main-nav a:hover { border-bottom: 2px solid #FFB300; }
-  .main-content {
-    display: flex;
-    gap: 32px;
-    max-width: 1400px;
-    width: 98vw;
-    margin: 40px auto 0 auto;
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    padding: 40px 32px;
-    flex: 1 0 auto;
-    min-height: 600px;
-  }
-  .main-content h2 { font-size: 1.7rem; font-weight: 700; color: #005BAC; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-  .fault-form-panel { flex: 0 0 400px; max-width: 420px; border-right: 1px solid #E0E6EF; padding-right: 32px; }
-  .fault-list-panel { flex: 1 1 0; padding-left: 32px; }
-  .fault-list-panel form[method="get"] {
-    display: flex;
-    gap: 14px;
-    align-items: center;
-    background: #f8f9fa;
-    padding: 12px 16px;
-    border-radius: 8px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.03);
-    flex-wrap: nowrap;
-    min-width: 0;
-  }
-  .fault-list-panel form[method="get"] > * {
-    min-width: 140px;
-    flex: 1 1 0;
-    max-width: 260px;
-  }
-  .fault-list-panel form[method="get"] button {
-    min-width: 90px;
-    max-width: 120px;
-    flex: 0 0 auto;
-    background: #3C8DBC;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    font-weight: 500;
-    padding: 7px 18px;
-    transition: background 0.2s;
-    cursor: pointer;
-  }
-  .fault-list-panel form[method="get"] button:hover {
-    background: #005BAC;
-  }
-  .fault-list { margin-top: 0; }
-  .fault-item {
-    background: #f5f7fa;
-    border-radius: 14px;
-    box-shadow: 0 2px 8px rgba(60,139,188,0.06);
-    margin-bottom: 24px;
-    overflow: hidden;
-  }
-  .fault-main {
-    padding: 22px 28px 12px 28px;
-    background: #fff;
-  }
-  .fault-part {
-    font-size: 1.15rem;
-    font-weight: 700;
-    margin-bottom: 8px;
-  }
-  .fault-meta {
-    font-size: 0.98rem;
-    color: #666;
-    display: flex;
-    gap: 16px;
-    align-items: center;
-  }
-  .status-badge {
-    display: inline-block;
-    padding: 4px 16px;
-    border-radius: 16px;
-    font-size: 0.98rem;
-    font-weight: 600;
-    color: #fff;
-    margin-right: 0;
-  }
-  .status-badge.received { background: #3C8DBC; }
-  .status-badge.processing { background: #FF9800; }
-  .status-badge.completed { background: #4CAF50; }
-  .fault-sub {
-    background: #f8f9fa;
-    padding: 14px 28px 18px 28px;
-    border-top: 1px solid #e0e6ed;
-  }
-  .toggle-detail {
-    background: none;
-    border: none;
-    color: #3C8DBC;
-    font-weight: 600;
-    cursor: pointer;
-    margin-bottom: 8px;
-  }
-  .file-info { background: #e8f4fd; padding: 8px; border-radius: 3px; margin: 5px 0; font-size: 12px; }
-  .file-link { color: #2196f3; text-decoration: none; }
-  .file-link:hover { text-decoration: underline; }
-  .file-missing { color: #f44336; font-style: italic; }
-  .btn { display: inline-flex; align-items: center; gap: 4px; background: #005BAC; color: #fff; border: none; border-radius: 6px; padding: 8px 16px; font-size: 1rem; cursor: pointer; transition: background 0.2s; text-decoration: none; }
-  .btn:hover { background: #003F7D; }
-  .comment-list { margin-top: 10px; }
-  .comment-item { background: #fff; padding: 7px 10px; margin: 4px 0; border-radius: 4px; }
-  .footer { margin-top: 40px; padding: 24px 0 12px 0; background: none; color: #888; font-size: 15px; }
-  @media (max-width: 1200px) {
-    .main-content { max-width: 99vw; width: 99vw; padding: 16px 2vw; }
-    .fault-form-panel, .fault-list-panel { max-width: none; padding: 0; border: none; }
-    .fault-list-panel form[method="get"] { flex-wrap: wrap; }
-    .fault-list-panel form[method="get"] > * { max-width: none; width: 100%; }
-  }
-  .fault-form-panel form {
-    background: #f8f9fa;
-    border-radius: 18px;
-    box-shadow: 0 2px 12px rgba(60,139,188,0.08);
-    padding: 32px 28px 24px 28px;
-    max-width: 480px;
-    margin: 0 auto 32px auto;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .fault-form-panel input[type="text"],
-  .fault-form-panel select,
-  .fault-form-panel input[type="file"] {
-    border-radius: 12px;
-    border: 1.5px solid #cfd8dc;
-    padding: 14px 16px;
-    font-size: 1rem;
-    background: #fff;
-    transition: border 0.2s;
-    margin-top: 2px;
-  }
-  .fault-form-panel textarea {
-    border-radius: 12px;
-    border: 1.5px solid #cfd8dc;
-    padding: 14px 16px;
-    font-size: 1rem;
-    background: #fff;
-    transition: border 0.2s;
-    margin-top: 2px;
-    min-height: 48px;
-    resize: vertical;
-    overflow: hidden;
-  }
-  .fault-form-panel textarea:focus {
-    border: 1.5px solid #3C8DBC;
-    outline: none;
-  }
-  .fault-form-panel button[type="submit"] {
-    border-radius: 18px;
-    background: linear-gradient(90deg, #3C8DBC 60%, #005BAC 100%);
-    color: #fff;
-    font-weight: 600;
-    font-size: 1.1rem;
-    padding: 14px 0;
-    border: none;
-    margin-top: 8px;
-    box-shadow: 0 2px 8px rgba(60,139,188,0.08);
-    transition: background 0.2s;
-  }
-  .fault-form-panel button[type="submit"]:hover {
-    background: linear-gradient(90deg, #005BAC 60%, #3C8DBC 100%);
-  }
-  .fault-form-panel label {
-    font-weight: 600;
-    color: #005BAC;
-    margin-bottom: 2px;
-    margin-top: 8px;
-  }
-  @media (max-width: 600px) {
-    .fault-form-panel form {
-      padding: 16px 6vw 16px 6vw;
-      max-width: 99vw;
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>고장 관리</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link href="https://fonts.googleapis.com/css?family=Noto+Sans+KR:400,700&display=swap" rel="stylesheet">
+  <style>
+    /* faults.php 전용: 좌우 분할 레이아웃 */
+    .faults-flex-wrap {
+      display: flex;
+      gap: 40px;
+      align-items: flex-start;
+      margin-top: 0;
     }
-  }
-  .manager {
-    font-size: 0.98rem;
-    color: #666;
-  }
-  .created {
-    font-size: 0.98rem;
-    color: #666;
-  }
-  .author {
-    font-size: 0.98rem;
-    color: #666;
-  }
-  .comment-count {
-    font-size: 0.98rem;
-    color: #666;
-  }
-  .fault-action-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    border: none;
-    border-radius: 8px;
-    padding: 7px 16px;
-    font-size: 1rem;
-    font-weight: 500;
-    cursor: pointer;
-    margin-right: 8px;
-    background: #f0f4fa;
-    color: #3C8DBC;
-    transition: background 0.18s, color 0.18s, box-shadow 0.18s;
-    box-shadow: 0 1px 4px rgba(60,139,188,0.06);
-  }
-  .fault-action-btn.edit { color: #1976D2; }
-  .fault-action-btn.delete { color: #E53935; }
-  .fault-action-btn.edit:hover { background: #e3f2fd; }
-  .fault-action-btn.delete:hover { background: #ffebee; }
-
-  .comment-form input[type="text"] {
-    border-radius: 8px 0 0 8px;
-    border: 1.5px solid #cfd8dc;
-    padding: 10px 14px;
-    font-size: 1rem;
-    background: #fff;
-    transition: border 0.2s;
-    flex: 1;
-  }
-  .comment-form button {
-    border-radius: 0 8px 8px 0;
-    background: #3C8DBC;
-    color: #fff;
-    font-weight: 600;
-    font-size: 1rem;
-    padding: 10px 22px;
-    border: none;
-    margin-left: -1px;
-    transition: background 0.2s;
-  }
-  .comment-form button:hover { background: #005BAC; }
-
-  .fault-icons {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    margin-top: 6px;
-  }
-  .fault-icon-btn {
-    background: none;
-    border: none;
-    font-size: 1.3rem;
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 6px;
-    transition: background 0.18s, color 0.18s;
-  }
-  .fault-icon-btn.bookmark { color: #FFB300; }
-  .fault-icon-btn.bookmark:hover { background: #fff8e1; }
-  .fault-icon-btn.report { color: #E53935; }
-  .fault-icon-btn.report:hover { background: #ffebee; }
-
-  .btn-cancel {
-    display: inline-block;
-    margin-top: 10px;
-    color: #fff;
-    background: #bbb;
-    border-radius: 8px;
-    padding: 8px 18px;
-    font-weight: 500;
-    text-decoration: none;
-    transition: background 0.18s;
-  }
-  .btn-cancel:hover { background: #888; }
-
-  /* 임시: 고장 목록 모두 보이게 강제 */
-  .fault-list, .fault-item, .fault-list-panel {
-    height: auto !important;
-    overflow: visible !important;
-    display: block !important;
-    max-height: none !important;
-  }
-</style>
+    .fault-form {
+      flex: 1 1 350px;
+      min-width: 320px;
+      max-width: 400px;
+      background: #fff;
+      border-radius: 10px;
+      padding: 32px 20px 28px 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .fault-list {
+      flex: 2 1 600px;
+      min-width: 480px;
+      background: #f8fafd;
+      border-radius: 10px;
+      padding: 32px 20px 28px 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    @media (max-width: 900px) {
+      .faults-flex-wrap {
+        flex-direction: column;
+        gap: 18px;
+      }
+      .fault-form, .fault-list {
+        min-width: 0;
+        max-width: 100%;
+        padding: 18px 8px;
+      }
+    }
+    /* 기존 .main-content의 flex 스타일 제거 (카드형 유지) */
+    .main-content {
+      display: block;
+      max-width: 1200px;
+      margin: 40px auto 0 auto;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      padding: 40px 32px;
+      flex: 1 0 auto;
+      min-height: 600px;
+    }
+    /* 고장 게시글 카드 스타일 */
+    .fault-item {
+      border: 1.5px solid #e0e6ef;
+      background: #fff;
+      border-radius: 12px;
+      padding: 18px 20px 12px 20px;
+      margin-bottom: 18px;
+      box-shadow: 0 2px 8px rgba(0,91,172,0.03);
+      transition: border 0.18s, box-shadow 0.18s;
+    }
+    .fault-item:hover {
+      border: 1.5px solid #b3c6e6;
+      box-shadow: 0 4px 16px rgba(0,91,172,0.07);
+    }
+    /* 상태 뱃지 강조 */
+    .status-badge {
+      display: inline-block;
+      border-radius: 8px;
+      padding: 3px 12px;
+      font-size: 0.98rem;
+      font-weight: 700;
+      margin-right: 8px;
+    }
+    .status-badge.received { background: #e3f0ff; color: #005BAC; }
+    .status-badge.processing { background: #fffbe3; color: #f5a623; }
+    .status-badge.completed { background: #e3ffe3; color: #43e97b; }
+    /* 상세보기 버튼 작게 */
+    .fault-item .toggle-detail {
+      padding: 6px 18px;
+      font-size: 1rem;
+      min-width: 0;
+      border-radius: 7px;
+      margin-top: 8px;
+      margin-bottom: 0;
+    }
+    /* 수정/삭제 버튼 작게 */
+    .fault-action-btn {
+      padding: 5px 14px;
+      font-size: 0.98rem;
+      min-width: 0;
+      border-radius: 7px;
+      margin-right: 6px;
+      margin-bottom: 2px;
+    }
+    /* 검색/정렬 버튼 글씨 깨짐 방지 및 크기 축소 */
+    .fault-list form button {
+      padding: 5px 10px;
+      font-size: 0.98rem;
+      border-radius: 6px;
+      min-width: 0;
+      height: 34px;
+      white-space: nowrap;
+      line-height: 1.1;
+      width: 54px;
+      text-align: center;
+    }
+    /* 검색/정렬 폼 가로 정렬 및 버튼 input 높이 맞춤 */
+    .fault-list form {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+      background: #f8f9fa;
+      padding: 12px 16px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+    }
+    .fault-list form button {
+      height: 38px;
+      padding: 0 16px;
+      font-size: 1rem;
+      border-radius: 6px;
+      min-width: 0;
+      white-space: nowrap;
+      margin-left: 0;
+      background: #3C8DBC;
+      color: #fff;
+      border: none;
+      font-weight: 500;
+      transition: background 0.18s;
+    }
+    .fault-list form button:hover {
+      background: #2554a3;
+    }
+    @media (max-width: 700px) {
+      .fault-list form {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+      }
+      .fault-list form button {
+        width: 100%;
+        margin-left: 0;
+      }
+    }
+  </style>
+</head>
 <body>
-  <a href="#main-content" class="skip-link">본문 바로가기</a>
-  <header class="header" role="banner">
-    <a href="index.php" class="logo" aria-label="홈으로">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><rect width="24" height="24" rx="6" fill="#fff" fill-opacity="0.18"/><path fill="#005BAC" d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8v-10h-8v10zm0-18v6h8V3h-8z"/></svg>
-      PLC Rotator System
-    </a>
+  <header class="header" role="banner" style="box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <a class="logo" aria-label="홈으로" style="font-size:1.5rem;letter-spacing:2px;">PLC Rotator System</a>
     <nav class="main-nav" aria-label="주요 메뉴">
-      <ul style="display:flex;align-items:center;gap:32px;">
-        <li><a href="index.php"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8v-10h-8v10zm0-18v6h8V3h-8z" fill="#fff"/></svg>대시보드</a></li>
-        <li><a href="control.php"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 17.93V20h-2v-.07A8.001 8.001 0 014.07 13H4v-2h.07A8.001 8.001 0 0111 4.07V4h2v.07A8.001 8.001 0 0119.93 11H20v2h-.07A8.001 8.001 0 0113 19.93z" fill="#fff"/></svg>제어</a></li>
-        <li><a href="faults.php" aria-current="page"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm0-4h-2V7h2v8z" fill="#fff"/></svg>고장</a></li>
+      <ul style="display:flex;align-items:center;gap:32px;justify-content:center;">
+        <li><a href="index.php">대시보드</a></li>
+        <li><a href="control.php">제어</a></li>
+        <li><a href="faults.php" aria-current="page">고장</a></li>
         <?php if (isset($_SESSION['admin'])): ?>
-        <li><a href="logs.php"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 6v18h18V6H3zm16 16H5V8h14v14zm-7-2h2v-2h-2v2zm0-4h2v-4h-2v4z" fill="#fff"/></svg>로그</a></li>
+        <li><a href="logs.php">로그</a></li>
         <?php endif; ?>
-        <li><a href="logout.php"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16 13v-2H7V8l-5 4 5 4v-3h9zm3-10H5c-1.1 0-2 .9-2 2v6h2V5h14v14H5v-6H3v6c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z" fill="#fff"/></svg>로그아웃</a></li>
+        <li><a href="logout.php">로그아웃</a></li>
       </ul>
     </nav>
   </header>
-  <main id="main-content" class="main-content" tabindex="-1">
-    <div class="fault-form-panel">
-      <?php if ($edit_fault): ?>
+  <main class="main-content" id="main-content" tabindex="-1">
+    <div class="faults-flex-wrap">
+      <div class="fault-form">
+        <?php if ($edit_fault): ?>
         <h2>✏️ 고장 내용 수정</h2>
         <form method="post" action="faults.php" enctype="multipart/form-data">
           <input type="hidden" name="edit_id" value="<?= $edit_fault['id'] ?>">
@@ -654,10 +517,10 @@ $faults = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </form>
       <?php endif; ?>
     </div>
-    <div class="fault-list-panel">
+    <div class="fault-list">
       <h2 style="font-size:1.2rem; color:#005BAC; margin-bottom:12px; display:flex;align-items:center;gap:8px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 6v18h18V6H3zm16 16H5V8h14v14zm-7-2h2v-2h-2v2zm0-4h2v-4h-2v4z" fill="#005BAC"/></svg>고장 목록</h2>
       <!-- 검색/필터/정렬 폼을 고장 목록 상단에 배치 -->
-      <form method="get" action="faults.php" style="margin-bottom:18px;display:flex;gap:10px;align-items:center;background:#f8f9fa;padding:12px 16px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.03);">
+      <form method="get" action="faults.php">
         <select name="filter_status" style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;">
           <option value="">상태 전체</option>
           <option value="접수">접수</option>
@@ -671,7 +534,7 @@ $faults = $stmt->fetchAll(PDO::FETCH_ASSOC);
           <option value="old">오래된순</option>
           <option value="comment">댓글많은순</option>
         </select>
-        <button type="submit" style="background:#3C8DBC;color:#fff;padding:7px 18px;border:none;border-radius:6px;font-weight:500;">검색/정렬</button>
+        <button type="submit">검색</button>
       </form>
       <div class="fault-list">
         <?php if (count($faults) > 0): ?>
@@ -743,8 +606,8 @@ $faults = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </div>
   </main>
   <footer class="footer" role="contentinfo">
-    <div style="text-align:center;">기관명 | 주소 | <a href="#" style="color:#FFB300; text-decoration:underline;">이용약관</a> | <a href="#" style="color:#FFB300; text-decoration:underline;">개인정보처리방침</a> | 고객센터: 1234-5678</div>
-    <div style="margin-top:8px; text-align:center;">© 2024 PLC Rotator System</div>
+    <div>가천대학교 CPS |  <a href="#" style="color:#FFB300; text-decoration:underline;">이용약관</a> | <a href="#" style="color:#FFB300; text-decoration:underline;">개인정보처리방침</a> | 고객센터: 1234-5678</div>
+    <div style="margin-top:8px;">© 2025 PLC Control</div>
   </footer>
   <script>
   document.addEventListener('DOMContentLoaded', function() {
