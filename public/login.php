@@ -2,9 +2,13 @@
 <?php
 require_once '../src/db/db.php';
 require_once '../src/log/log_function.php';
+$maintenance_active = false;
+$stmt = $pdo->query("SELECT * FROM maintenance WHERE is_active=1 LIMIT 1");
+if ($stmt->fetch()) {
+    $maintenance_active = true;
+}
 if (!isset($_POST['admin_maintenance_login'])) {
-    $stmt = $pdo->query("SELECT * FROM maintenance WHERE is_active=1 LIMIT 1");
-    if ($stmt->fetch()) {
+    if ($maintenance_active) {
         header('Location: maintenance.php');
         exit();
     }
