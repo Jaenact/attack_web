@@ -123,6 +123,7 @@ function maskIP($ip) {
   <meta charset="UTF-8">
   <title>시스템 로그</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="assets/css/main.css">
   <link href="https://fonts.googleapis.com/css?family=Noto+Sans+KR:400,700&display=swap" rel="stylesheet">
   <style>
     body { background: #F5F7FA; color: #222; font-family: 'Noto Sans KR', 'Nanum Gothic', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
@@ -132,27 +133,31 @@ function maskIP($ip) {
     .main-nav ul { display: flex; gap: 32px; list-style: none; }
     .main-nav a { color: #fff; text-decoration: none; font-weight: 500; padding: 8px 0; border-bottom: 2px solid transparent; transition: border 0.2s; display: flex; align-items: center; gap: 6px; }
     .main-nav a[aria-current="page"], .main-nav a:hover { border-bottom: 2px solid #FFB300; }
-    .main-content { max-width: 1100px; margin: 40px auto 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 40px 32px; flex: 1 0 auto; }
+    .main-content { max-width: 1200px; margin: 40px auto 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 40px 32px; flex: 1 0 auto; }
     .main-content h2 { font-size: 1.7rem; font-weight: 700; color: #005BAC; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
     .footer { background: #222; color: #fff; text-align: center; padding: 24px 0 16px 0; font-size: 0.95rem; margin-top: 48px; flex-shrink: 0; }
-    /* 로그 카드 스타일 */
-    .log-list { margin: 0; padding: 0; }
+    /* 로그 카드 스타일 (대시보드 카드와 유사하게 리디자인) */
+    .log-list { margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 24px; }
     .log-card {
-      background: #f8f9fa;
-      border-radius: 14px;
-      box-shadow: 0 2px 8px rgba(60,139,188,0.06);
-      margin-bottom: 18px;
+      background: #f8faff;
+      border-radius: 18px;
+      box-shadow: 0 2px 12px rgba(51,102,204,0.07);
+      margin-bottom: 0;
       overflow: hidden;
       display: flex;
-      align-items: center;
-      padding: 18px 28px;
-      gap: 24px;
-      transition: box-shadow 0.18s;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 28px 24px 20px 24px;
+      gap: 10px;
+      transition: box-shadow 0.18s, border 0.18s;
       cursor: pointer;
       border: 2px solid transparent;
+      min-width: 320px;
+      max-width: 420px;
+      flex: 1 1 340px;
     }
     .log-card:hover {
-      box-shadow: 0 4px 16px rgba(60,139,188,0.13);
+      box-shadow: 0 4px 16px rgba(0,91,172,0.10);
       border: 2px solid #3C8DBC22;
       background: #eaf3fb;
     }
@@ -160,12 +165,12 @@ function maskIP($ip) {
       display: inline-block;
       min-width: 80px;
       padding: 6px 18px;
-      border-radius: 16px;
+      border-radius: 12px;
       font-size: 1.08rem;
       font-weight: 700;
       color: #fff;
       text-align: center;
-      margin-right: 0;
+      margin-bottom: 6px;
     }
     .log-badge.success { background: #43e97b; }
     .log-badge.error { background: #e74c3c; }
@@ -174,15 +179,16 @@ function maskIP($ip) {
     .log-badge.danger { background: #c0392b; }
     .log-badge.primary { background: #005BAC; }
     .log-badge.default { background: #888; }
-    .log-meta { flex: 1 1 0; display: flex; flex-direction: column; gap: 4px; }
+    .log-meta { width: 100%; display: flex; flex-direction: column; gap: 2px; }
     .log-meta .log-user { font-weight: 600; color: #005BAC; font-size: 1.08rem; }
     .log-meta .log-time { color: #888; font-size: 0.98rem; }
     .log-meta .log-ip { color: #1976D2; font-size: 1.08rem; font-family: 'Consolas', 'monospace'; font-weight: 600; }
     .log-meta .log-simple { font-size: 1.13rem; font-weight: 700; color: #333; }
-    @media (max-width: 700px) {
+    .log-meta .log-message { font-size: 1.01rem; color: #444; margin-top: 4px; word-break: break-all; }
+    @media (max-width: 900px) {
       .main-content { padding: 18px 2vw; }
-      .log-card { flex-direction: column; gap: 8px; padding: 12px 8px; }
-      .log-badge { min-width: 60px; font-size: 0.98rem; padding: 5px 10px; }
+      .log-list { flex-direction: column; gap: 14px; }
+      .log-card { min-width: 0; max-width: 100vw; padding: 12px 2vw; }
     }
     /* 모달 */
     .modal-bg {
@@ -274,18 +280,15 @@ function maskIP($ip) {
   </style>
 </head>
 <body>
-  <header class="header" role="banner">
-    <a href="index.php" class="logo" aria-label="홈으로">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><rect width="24" height="24" rx="6" fill="#fff" fill-opacity="0.18"/><path fill="#005BAC" d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8v-10h-8v10zm0-18v6h8V3h-8z"/></svg>
-      PLC Rotator System
-    </a>
+  <header class="header" role="banner" style="box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <a class="logo" aria-label="홈으로" href="index.php" style="font-size:1.5rem;letter-spacing:2px;">PLC Rotator System</a>
     <nav class="main-nav" aria-label="주요 메뉴">
       <ul style="display:flex;align-items:center;gap:32px;justify-content:center;">
-        <li><a href="index.php"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8v-10h-8v10zm0-18v6h8V3h-8z" fill="#fff"/></svg>대시보드</a></li>
-        <li><a href="control.php"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 17.93V20h-2v-.07A8.001 8.001 0 014.07 13H4v-2h.07A8.001 8.001 0 0111 4.07V4h2v.07A8.001 8.001 0 0119.93 11H20v2h-.07A8.001 8.001 0 0113 19.93z" fill="#fff"/></svg>제어</a></li>
-        <li><a href="faults.php"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm0-4h-2V7h2v8z" fill="#fff"/></svg>고장</a></li>
-        <li><a href="logs.php" aria-current="page"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 6v18h18V6H3zm16 16H5V8h14v14zm-7-2h2v-2h-2v2zm0-4h2v-4h-2v4z" fill="#fff"/></svg>로그</a></li>
-        <li><a href="logout.php"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16 13v-2H7V8l-5 4 5 4v-3h9zm3-10H5c-1.1 0-2 .9-2 2v6h2V5h14v14H5v-6H3v6c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z" fill="#fff"/></svg>로그아웃</a></li>
+        <li><a href="index.php">대시보드</a></li>
+        <li><a href="control.php">제어</a></li>
+        <li><a href="faults.php">고장</a></li>
+        <li><a href="logs.php" aria-current="page">로그</a></li>
+        <li><a href="logout.php">로그아웃</a></li>
       </ul>
     </nav>
   </header>
@@ -321,9 +324,9 @@ function maskIP($ip) {
               else echo '기타';
             ?></span>
             <div class="log-meta">
-              <span class="log-user">사용자: <?= htmlspecialchars(isset($name_map[$log['username']]) && $name_map[$log['username']] ? $name_map[$log['username']] : $log['username']) ?></span>
-              <span class="log-time">시간: <?= date('s', strtotime($log['created_at'])) ?>초</span>
-              <span class="log-ip">IP: <?= htmlspecialchars(maskIP($log['ip_address'])) ?></span>
+              <span class="log-user">👤 <?= htmlspecialchars(isset($name_map[$log['username']]) && $name_map[$log['username']] ? $name_map[$log['username']] : $log['username']) ?></span>
+              <span class="log-time">🕒 <?= date('Y-m-d H:i:s', strtotime($log['created_at'])) ?></span>
+              <span class="log-ip">🌐 <?= htmlspecialchars(maskIP($log['ip_address'])) ?></span>
               <span class="log-simple">활동: <?php
                 if (strpos($log['log_message'], '장비 제어')!==false)      echo '장비제어';
                 else if (strpos($log['log_message'], '고장 삭제')!==false) echo '고장삭제';
@@ -336,6 +339,7 @@ function maskIP($ip) {
                 else if (strpos($log['log_message'], 'PHPIDS')!==false) echo '공격감지';
                 else echo '기타';
               ?></span>
+              <span class="log-message">메시지: <?= htmlspecialchars($log['log_message']) ?></span>
             </div>
           </div>
         <?php endforeach; ?>
