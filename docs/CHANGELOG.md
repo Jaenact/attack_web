@@ -12,7 +12,7 @@
 - [UI/UX] admin_login.php에 Pretendard 폰트, 카드형 디자인, 반응형 스타일 적용. 로그인 실패 시 에러 메시지 노출, 입력폼/버튼 등 실무형 UX 반영
 - [보안/진단] 세션 체크 및 에러 진단 코드 개선, 관리자/게스트 구분 및 권한 처리 명확화
 
-### 취약점 제보 기능 정식 구현현
+### 취약점 제보 기능 정식 구현
 - [개선] 네비게이션 바에서 필요한 권한에 따라 분리적 이동(public/vulnerability_report.php: 사용자 페이지, /public/admin/vulnerability_management.php: 관리자 페이지지)
 - [수정] public/vulnerability_report.php에서 관리자 접근 부분, DB 생성 부분은 제거거
 - [UI/UX 대폭 개선] 관리자 취약점 관리(vulnerability_management.php) 상세 패널:
