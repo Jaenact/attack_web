@@ -369,6 +369,8 @@ try {
 </header>
 <main class="main-content">
 <?php if (isset($_SESSION['admin'])): ?>
+  <!-- 기존 관리자 대시보드 전체 유지 -->
+  <!-- 시스템 모니터링 캐러셀, 요약 카드, 빠른 진입, 최근 이슈, 공지, 차트 등 -->
   <!-- 시스템 모니터링 캐러셀 (네비게이션 점 제거, 자동 전환만) -->
   <section class="system-monitor-carousel" style="margin-bottom:32px;">
     <div id="sysMonCarousel" class="sysmon-carousel-cards"></div>
@@ -433,7 +435,6 @@ try {
     .sysmon-card .sysmon-value { font-size:2.2rem; font-weight:800; color:#222; margin-bottom:2px; }
     .sysmon-card .sysmon-unit { font-size:1.01rem; color:#888; }
   </style>
-<?php endif; ?>
   <!-- 상단 요약 카드 -->
   <section class="dashboard-cards">
     <div class="dashboard-card">
@@ -527,8 +528,8 @@ try {
     <h3 style="font-size:1.13rem;font-weight:700;color:#3366cc;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
       <span style="font-size:1.3rem;">📢</span> 최근 공지사항
     </h3>
-    <?php if (count($notices) > 0): ?>
-      <?php foreach ($notices as $notice): ?>
+    <?php if (count($all_notices) > 0): ?>
+      <?php foreach ($all_notices as $notice): ?>
         <div style="margin-bottom:14px;">
           <div style="font-size:1.08rem;font-weight:700;color:#3366cc;"> <?= htmlspecialchars($notice['title']) ?> </div>
           <div style="font-size:0.97rem;color:#444;line-height:1.5;margin-bottom:2px;"> <?= nl2br(htmlspecialchars($notice['content'])) ?> </div>
@@ -687,7 +688,88 @@ try {
     });
   }
   </script>
-
+<?php elseif (isset($_SESSION['guest'])): ?>
+  <!-- 게스트/일반 사용자 대시보드 (3-2 카드 배치, 가로폭 넓게) -->
+  <section class="dashboard-cards" style="flex-wrap:wrap;gap:32px 32px;">
+    <div style="display:flex;gap:32px;width:100%;margin-bottom:32px;">
+      <div class="dashboard-card" style="flex:1 1 0;min-width:340px;max-width:480px;">
+        <div class="card-title">🔔 최근 공지사항</div>
+        <?php if (count($notices) > 0): ?>
+          <?php foreach ($notices as $notice): ?>
+            <div style="margin-bottom:10px;">
+              <div style="font-size:1.01rem;font-weight:700;color:#3366cc;"> <?= htmlspecialchars($notice['title']) ?> </div>
+              <div style="font-size:0.97rem;color:#444;line-height:1.5;"> <?= nl2br(htmlspecialchars($notice['content'])) ?> </div>
+              <div style="font-size:0.92rem;color:#888;">등록일: <?= date('Y-m-d', strtotime($notice['created_at'])) ?></div>
+            </div>
+          <?php endforeach; ?>
+        <?php else: ?>
+          <div style="color:#888;">등록된 공지사항이 없습니다.</div>
+        <?php endif; ?>
+      </div>
+      <div class="dashboard-card" style="flex:1 1 0;min-width:340px;max-width:480px;">
+        <div class="card-title">📝 내 최근 고장 제보</div>
+        <?php if (!empty($my_faults)): ?>
+          <ul style="padding-left:0;list-style:none;">
+          <?php foreach ($my_faults as $f): ?>
+            <li style="margin-bottom:6px;">
+              <b><?= htmlspecialchars($f['part']) ?></b> (<?= $f['status'] ?>) - <?= $f['created_at'] ?>
+            </li>
+          <?php endforeach; ?>
+          </ul>
+        <?php else: ?>
+          <div style="color:#888;">최근 고장 제보가 없습니다.</div>
+        <?php endif; ?>
+      </div>
+      <div class="dashboard-card" style="flex:1 1 0;min-width:340px;max-width:480px;">
+        <div class="card-title">🔒 내 취약점 제보</div>
+        <?php if (!empty($my_vul_reports)): ?>
+          <ul style="padding-left:0;list-style:none;">
+          <?php foreach ($my_vul_reports as $v): ?>
+            <li style="margin-bottom:6px;">
+              <b><?= htmlspecialchars($v['title']) ?></b> (<?= $v['status'] ?>) - <?= $v['created_at'] ?>
+            </li>
+          <?php endforeach; ?>
+          </ul>
+        <?php else: ?>
+          <div style="color:#888;">최근 취약점 제보가 없습니다.</div>
+        <?php endif; ?>
+      </div>
+    </div>
+    <div style="display:flex;gap:32px;width:100%;">
+      <div class="dashboard-card" style="flex:1 1 0;min-width:340px;max-width:480px;">
+        <div class="card-title">📢 내 최근 알림</div>
+        <?php if (!empty($my_notifications)): ?>
+          <ul style="padding-left:0;list-style:none;">
+          <?php foreach ($my_notifications as $n): ?>
+            <li style="margin-bottom:6px;">
+              <?= isset($n['content']) ? htmlspecialchars($n['content']) : '<span style=\'color:#888;\'>알림 내용 없음</span>' ?> - <?= $n['created_at'] ?>
+            </li>
+          <?php endforeach; ?>
+          </ul>
+        <?php else: ?>
+          <div style="color:#888;">최근 알림이 없습니다.</div>
+        <?php endif; ?>
+      </div>
+      <div class="dashboard-card" style="flex:1 1 0;min-width:340px;max-width:480px;">
+        <div class="card-title">🕓 내 최근 활동</div>
+        <?php if (!empty($my_logs)): ?>
+          <ul style="padding-left:0;list-style:none;">
+          <?php foreach ($my_logs as $l): ?>
+            <li style="margin-bottom:6px;">
+              <?= htmlspecialchars($l['log_message']) ?> - <?= $l['created_at'] ?>
+            </li>
+          <?php endforeach; ?>
+          </ul>
+        <?php else: ?>
+          <div style="color:#888;">최근 활동 내역이 없습니다.</div>
+        <?php endif; ?>
+      </div>
+    </div>
+  </section>
+<?php else: ?>
+  <!-- 로그인하지 않은 경우 안내 -->
+  <div style="text-align:center;color:#888;padding:48px 0;font-size:1.2rem;">로그인 후 대시보드를 이용할 수 있습니다.</div>
+<?php endif; ?>
 </main>
 <!-- 공지사항 관리 모달 -->
 <div id="noticeModal" class="notice-modal">
