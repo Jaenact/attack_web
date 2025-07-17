@@ -26,8 +26,29 @@ session_destroy();
 
 // 로그아웃 로그 기록
 writeLog($pdo, $currentUser, "로그아웃", "성공", "계정: $currentUser (역할: $userRole)");
-
-header("Location: login.php");
-exit;
 ?>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>로그아웃</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <meta http-equiv="refresh" content="2;url=login.php">
+  <style>body { background: #f9f9f9; }</style>
+</head>
+<body>
+  <main class="main-content centered" style="min-height:60vh;">
+    <div class="card text-center" style="max-width:400px; margin:0 auto;">
+      <h2>로그아웃 되었습니다</h2>
+      <p>잠시 후 로그인 페이지로 이동합니다.</p>
+      <a href="login.php" class="btn btn-primary" style="margin-top:18px;">로그인 페이지로 이동</a>
+    </div>
+  </main>
+  <footer class="footer" role="contentinfo">
+    <div>가천대학교 CPS |  <a href="#" style="color:#FFB300; text-decoration:underline;">이용약관</a> | <a href="#" style="color:#FFB300; text-decoration:underline;">개인정보처리방침</a> | 고객센터: 1234-5678</div>
+    <div style="margin-top:8px;">© 2025 PLC Control</div>
+  </footer>
+</body>
+</html>
 
