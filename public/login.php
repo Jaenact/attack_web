@@ -21,62 +21,29 @@ if (!isset($_POST['admin_maintenance_login'])) {
   <title>PLC 로그인</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://fonts.googleapis.com/css?family=Noto+Sans+KR:400,700&display=swap" rel="stylesheet">
-  <style>
-    body {
-      background: #F5F7FA;
-      color: #222;
-      font-family: 'Noto Sans KR', 'Nanum Gothic', sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    .header { display: flex; align-items: center; justify-content: center; background: #005BAC; color: #fff; padding: 0 32px; height: 64px; }
-    .logo { display: flex; align-items: center; font-weight: bold; font-size: 1.3rem; letter-spacing: 1px; text-decoration: none; color: #fff; }
-    .logo svg { margin-right: 8px; }
-    .main-content {
-      width: 90vw;
-      max-width: 900px;
-      margin: 40px auto 0 auto;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-      padding: 40px 60px 48px 60px;
-      flex: 1 0 auto;
-      min-height: 340px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-    .main-content h2 { font-size: 1.7rem; font-weight: 700; color: #005BAC; margin-bottom: 24px; display: flex; align-items: center; gap: 8px; }
-    .main-content form { display: flex; flex-direction: column; gap: 16px; }
-    .main-content input { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; }
-    .main-content button { width: 100%; padding: 12px; background: #005BAC; color: white; font-size: 16px; border: none; border-radius: 6px; cursor: pointer; margin-top: 8px; }
-    .main-content button:hover { background: #337ab7; }
-    .main-content a { display: block; text-align: center; margin-top: 18px; color: #005BAC; text-decoration: underline; }
-    @media (max-width: 700px) {
-      .main-content { width: 98vw; max-width: 98vw; padding: 18px 4vw; }
-    }
-  </style>
+  <link rel="stylesheet" href="assets/css/main.css">
 </head>
 <body>
   <header class="header" role="banner">
-    <a href="index.php" class="logo" aria-label="홈으로">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><rect width="24" height="24" rx="6" fill="#fff" fill-opacity="0.18"/><path fill="#005BAC" d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8v-10h-8v10zm0-18v6h8V3h-8z"/></svg>
+    <a class="logo" aria-label="홈으로">
       PLC Rotator System
     </a>
   </header>
-  <main id="main-content" class="main-content" tabindex="-1">
-    <h2><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 17.93V20h-2v-.07A8.001 8.001 0 014.07 13H4v-2h.07A8.001 8.001 0 0111 4.07V4h2v.07A8.001 8.001 0 0119.93 11H20v2h-.07A8.001 8.001 0 0113 19.93z" fill="#005BAC"/></svg>로그인</h2>
-    <form action="auth.php" method="post">
-      <input type="text" name="username" placeholder="아이디" required>
-      <input type="password" name="password" placeholder="비밀번호" required>
-      <button type="submit">로그인</button>
+  <main>
+    <h2 class="text-center" style="padding-top: 50px;">로그인</h2>
+    <form action="auth.php" method="post" class="card" style="max-width:400px; margin:0 auto; display:flex; flex-direction:column; gap:2px; padding:12px 48px 10px 48px; min-height:unset";>
+      <div class="input-group" style="width:100%; margin-bottom:2px;">
+        <label for="username" style="margin-bottom:2px; font-size:1.01rem;">아이디</label>
+        <input type="text" id="username" name="username" class="input" placeholder="아이디" required autocomplete="username" style="width:100%; font-size:1.05rem; padding:6px 18px;">
+      </div>
+      <div class="input-group" style="width:100%; margin-bottom:2px;">
+        <label for="password" style="margin-bottom:2px; font-size:1.01rem;">비밀번호</label>
+        <input type="password" id="password" name="password" class="input" placeholder="비밀번호" required autocomplete="current-password" style="width:100%; font-size:1.05rem; padding:6px 18px;">
+      </div>
+      <button type="submit" class="btn btn-login" style="width:100%; font-size:1.05rem; padding:8px 0; margin-top:2px;">로그인</button>
     </form>
-    <a href="make_account.php">회원가입</a>
+    <a href="make_account.php" class="text-center" style="display:block; margin-top:18px; color:#005BAC; text-decoration:underline;">회원가입</a>
   </main>
-  <footer class="footer" role="contentinfo" style="background:#222; color:#fff; text-align:center; padding:24px 0 16px 0; font-size:0.95rem; margin-top:48px; flex-shrink:0;">
-    <div>가천대학교 CPS |  <a href="#" style="color:#FFB300; text-decoration:underline;">이용약관</a> | <a href="#" style="color:#FFB300; text-decoration:underline;">개인정보처리방침</a> | 고객센터: 1234-5678</div>
-    <div style="margin-top:8px;">© 2025 PLC Control</div>
-  </footer>
+  <!-- 추가적인 반응형 스타일은 main.css에 위임 -->
 </body>
 </html>
