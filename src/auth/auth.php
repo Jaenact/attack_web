@@ -9,32 +9,31 @@ require_once __DIR__ . '/../log/log_function.php';
 $username = $_POST['username'];
 $password = $_POST['password'];
 
-
 $sql = "SELECT * FROM users WHERE username = '$username' AND is_active = 1";
 $result = $pdo->query($sql);
 $user = $result->fetch();
 
-
 if ($user) {
-    // 모든 계정 해시 검증
     $passwordValid = password_verify($password, $user['password']);
 
     if ($passwordValid) {
-        // 역할에 따라 세션 설정
         if ($user['role'] === 'admin') {
             $_SESSION['admin'] = $user['username'];
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['user_role'] = 'admin';
             writeLog($pdo, $username, "로그인", "성공", "관리자 로그인 성공 - 계정: $username");
+
+            echo "<script>alert('관리자로 로그인되었습니다.'); location.href='index.php';</script>";
+            exit();
         } else {
             $_SESSION['guest'] = $user['username'];
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['user_role'] = 'guest';
             writeLog($pdo, $username, "로그인", "성공", "게스트 로그인 성공 - 계정: $username");
-        }
 
-        header("Location: index.php");
-        exit();
+            echo "<script>alert('게스트로 로그인되었습니다.'); location.href='index.php';</script>";
+            exit();
+        }
     }
 }
 
