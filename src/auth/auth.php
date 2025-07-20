@@ -23,6 +23,8 @@ if ($user) {
             $_SESSION['user_role'] = 'admin';
             writeLog($pdo, $username, "로그인", "성공", "관리자 로그인 성공 - 계정: $username");
 
+            // ✅ HTML 태그로도 관리자 로그인 성공 표시
+            echo "<div id='login-success'>관리자로 로그인되었습니다.</div>";
             echo "<script>alert('관리자로 로그인되었습니다.'); location.href='index.php';</script>";
             exit();
         } else {
@@ -31,6 +33,7 @@ if ($user) {
             $_SESSION['user_role'] = 'guest';
             writeLog($pdo, $username, "로그인", "성공", "게스트 로그인 성공 - 계정: $username");
 
+            echo "<div id='login-success'>게스트로 로그인되었습니다.</div>";
             echo "<script>alert('게스트로 로그인되었습니다.'); location.href='index.php';</script>";
             exit();
         }
