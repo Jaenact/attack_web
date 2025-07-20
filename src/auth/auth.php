@@ -10,21 +10,14 @@ $username = $_POST['username'];
 $password = $_POST['password'];
 
 
-// 워게임용: SQL 인젝션 취약점이 있는 쿼리 (필터링 우회 필요)
 $sql = "SELECT * FROM users WHERE username = '$username' AND is_active = 1";
 $result = $pdo->query($sql);
 $user = $result->fetch();
 
 
 if ($user) {
-    $passwordValid = false;
-    if ($user['role'] === 'admin') {
-        // 관리자 계정은 해시된 비밀번호 사용
-        $passwordValid = password_verify($password, $user['password']);
-    } else {
-        // 게스트 계정은 평문 비밀번호 사용
-        $passwordValid = $password === $user['password'];
-    }
+    // 모든 계정 해시 검증
+    $passwordValid = password_verify($password, $user['password']);
 
     if ($passwordValid) {
         // 역할에 따라 세션 설정
