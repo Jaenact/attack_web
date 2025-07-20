@@ -103,7 +103,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
         'username' => $username,
-        'password' => password_hash($password, PASSWORD_DEFAULT),
+        // 수정 (평문 저장)
+        'password' => $password,
         'name' => $name,
         'phone' => $phone,
         'profile_img' => $profile_img
