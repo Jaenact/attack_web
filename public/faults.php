@@ -163,7 +163,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['part']) && !isset($_P
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_id'], $_POST['new_part'])) {
+if (
+  $_SERVER['REQUEST_METHOD'] === 'POST' && 
+  isset($_POST['edit_id'], $_POST['new_part'])
+) {
+    // 관리자만 수정 가능
+    if (!isset($_SESSION['admin'])) {
+        echo "<script>alert('관리자만 수정할 수 있습니다.'); history.back();</script>";
+        exit();
+    }
     $id = $_POST['edit_id'];                                  
     $new_part = trim($_POST['new_part']);                     
     $new_status = $_POST['edit_status'] ?? '접수';
@@ -240,6 +248,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_id'], $_POST['ne
 }
 
 if (isset($_GET['delete'])) {                                 
+    // 관리자만 삭제 가능
+    if (!isset($_SESSION['admin'])) {
+        echo "<script>alert('관리자만 삭제할 수 있습니다.'); history.back();</script>";
+        exit();
+    }
     $id = $_GET['delete'];
     
     // 삭제할 파일 정보 가져오기
@@ -276,6 +289,11 @@ if (isset($_GET['delete'])) {
 
 $edit_fault = null;                                           
 if (isset($_GET['edit'])) {                                   
+    // 관리자만 수정 폼 접근 가능
+    if (!isset($_SESSION['admin'])) {
+        echo "<script>alert('관리자만 수정할 수 있습니다.'); history.back();</script>";
+        exit();
+    }
     $id = $_GET['edit'];                                      
     $stmt = $pdo->prepare("SELECT * FROM faults WHERE id = :id"); 
     $stmt->execute(['id' => $id]);                            
@@ -571,23 +589,15 @@ $faults = $stmt->fetchAll(PDO::FETCH_ASSOC);
                       담당자: <?= $fault['manager']??'-' ?>
                     </div>
                     <div style="margin-bottom:12px;">
-                      <button class="fault-action-btn edit" onclick="location.href='?edit=<?= $fault['id'] ?>'">
-                        ✏️ 수정
-                      </button>
-                      <button class="fault-action-btn delete" onclick="if(confirm('정말 삭제할까요?')) location.href='?delete=<?= $fault['id'] ?>'">
-                        ❌ 삭제
-                      </button>
+                      <?php if (isset($_SESSION['admin'])): ?>
+                        <button class="fault-action-btn edit" onclick="location.href='?edit=<?= $fault['id'] ?>'">
+                          ✏️ 수정
+                        </button>
+                        <button class="fault-action-btn delete" onclick="if(confirm('정말 삭제할까요?')) location.href='?delete=<?= $fault['id'] ?>'">
+                          ❌ 삭제
+                        </button>
+                      <?php endif; ?>
                     </div>
-                    <?php if (isset($_SESSION['admin'])): ?>
-                      <form method="post" action="faults.php" style="margin-bottom:8px;">
-                        <input type="hidden" name="note_id" value="<?= $fault['id'] ?>">
-                        <div style="background:#fff;border:1.5px solid #3C8DBC;border-radius:10px;padding:10px 14px 8px 14px;display:flex;align-items:flex-start;gap:10px;">
-                          <span style="font-size:1.2rem;color:#3C8DBC;margin-top:2px;">📝</span>
-                          <textarea name="admin_note" placeholder="관리자 메모" style="width:100%;min-height:36px;border:none;background:transparent;resize:vertical;outline:none;font-size:1rem;"><?= htmlspecialchars($fault['admin_note']??'') ?></textarea>
-                          <button type="submit" style="background:#3C8DBC;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:600;">저장</button>
-                        </div>
-                      </form>
-                    <?php endif; ?>
                   </div>
                 </div>
               </div>
