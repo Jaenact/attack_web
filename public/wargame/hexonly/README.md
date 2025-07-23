@@ -1,5 +1,7 @@
 ===========================================
-🧩 Hex Only - CTF Challenge
+
+# 🧩 Hex Only - CTF Challenge
+
 ===========================================
 
 [🎯 Challenge Description]
