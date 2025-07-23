@@ -45,10 +45,7 @@ writeLog($pdo, $currentUser, "로그아웃", "성공", "계정: $currentUser (�
       <a href="login.php" class="btn btn-primary" style="margin-top:18px;">로그인 페이지로 이동</a>
     </div>
   </main>
-  <footer class="footer" role="contentinfo">
-    <div>가천대학교 CPS |  <a href="#" style="color:#FFB300; text-decoration:underline;">이용약관</a> | <a href="#" style="color:#FFB300; text-decoration:underline;">개인정보처리방침</a> | 고객센터: 1234-5678</div>
-    <div style="margin-top:8px;">© 2025 PLC Control</div>
-  </footer>
+
 </body>
 </html>
 

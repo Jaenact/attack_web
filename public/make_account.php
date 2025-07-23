@@ -99,12 +99,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+
     $sql = "INSERT INTO users (username, password, role, name, phone, profile_img) VALUES (:username, :password, 'guest', :name, :phone, :profile_img)";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
         'username' => $username,
-        // 수정 (평문 저장)
-        'password' => $password,
+        'password' => $hashed_password,
         'name' => $name,
         'phone' => $phone,
         'profile_img' => $profile_img
