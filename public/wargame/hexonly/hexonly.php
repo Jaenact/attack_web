@@ -118,4 +118,20 @@ $output = shell_exec("python3 -c $escaped");
         </div>
     </div>
 </body>
+<div style="margin-top: 40px; text-align: center;">
+  <a href="http://210.102.178.92:9999/wargame/ctf.php" style="
+    display: inline-block;
+    padding: 12px 24px;
+    background-color: #00ffc3;
+    color: #000;
+    font-weight: bold;
+    text-decoration: none;
+    border-radius: 8px;
+    box-shadow: 0 0 15px #00ffc388;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  " onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 0 25px #00ffc3aa';"
+     onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 0 15px #00ffc388';">
+    ← 문제 목록으로 돌아가기
+  </a>
+</div>
 </html>
