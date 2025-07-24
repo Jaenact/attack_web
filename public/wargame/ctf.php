@@ -221,7 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   <h2>🏁 플래그 제출</h2>
   <form method="POST" action="ctf.php" class="form-section flag-form">
-    <input type="text" name="name" placeholder="이름" required>
+    <input type="text" name="name" placeholder="사용자 이름" required>
     <input type="text" name="flag" placeholder="플래그" required>
     <input type="submit" value="제출">
   </form>
