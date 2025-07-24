@@ -46,7 +46,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   <br>
   <button onclick="toggleCode()">📂 문제 코드 보기</button>
   <pre id="code" style="display:none; background:#111; color:#0f0; padding:10px; border-radius:8px;">
-// 외부 세션 ID 허용 → 세션 고정 취약 가능성 있음
 if (isset($_GET["sid"])) {
     session_id($_GET["sid"]);
 }
@@ -64,5 +63,21 @@ if (isset($_SESSION["auth"]) && $_SESSION["auth"] === true) {
       c.style.display = c.style.display === "none" ? "block" : "none";
     }
   </script>
+  <div style="margin-top: 40px; text-align: center;">
+  <a href="http://210.102.178.92:9999/wargame/ctf.php" style="
+    display: inline-block;
+    padding: 12px 24px;
+    background-color: #00ffc3;
+    color: #000;
+    font-weight: bold;
+    text-decoration: none;
+    border-radius: 8px;
+    box-shadow: 0 0 15px #00ffc388;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  " onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 0 25px #00ffc3aa';"
+     onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 0 15px #00ffc388';">
+    ← 문제 목록으로 돌아가기
+  </a>
+</div>
 </body>
 </html>
